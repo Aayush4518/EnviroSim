@@ -1,5 +1,5 @@
 
-import { Navbar } from "@/components/ui/mini-navbar";
+import { Navbar } from "@/app/components/ui/mini-navbar";
 
 const Nav = () => {
 
