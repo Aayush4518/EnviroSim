@@ -1,12 +1,43 @@
 "use client";
 import { AngleSlider } from "@ark-ui/react/angle-slider";
+import { useStore } from "../store/useStore";
+import { useState, useEffect } from "react";
 
 const width = 200;
 const thickness = 20;
 
 export default function WithKnobAngleSlider() {
+  const rain = useStore((state) => state.rain);
+  const setRain = useStore((state) => state.setRain);
+  const rainPercent= Math.round((rain / 360) * 100)
+
+useEffect(() => {
+  const controller = new AbortController();
+
+  const timeout = setTimeout(() => {                                //api debounce logic, wait for 300ms after the last change before making the API call
+    fetch("http://localhost:6969/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rain: rainPercent }),
+      signal: controller.signal,
+    }).catch((err) => {
+      if (err.name !== "AbortError") {
+        console.error(err);
+      }
+    });
+  }, 300);
+
+  return () => {
+    clearTimeout(timeout);
+    controller.abort(); // cancel previous request
+  };
+}, [rainPercent]);
+console.log("Rain value:", rain);
+
   return (
     <AngleSlider.Root
+      value={rain}
+      onValueChange={(value) => setRain(value)} // Update the store with the new value when it changes
       defaultValue={45}
       className="relative w-[200px] h-[200px] flex items-center justify-center"
     >
@@ -21,10 +52,12 @@ export default function WithKnobAngleSlider() {
               "--size": `${width}px`,
               "--thickness": `${thickness}px`,
               "--percent": "calc((var(--value) / 360) * 100)",
-            } as React.CSSProperties
+            }
           }
         >
           <title>Slider Ring</title>
+
+          
           {/* Track circle */}
           <circle
             className="stroke-gray-300 dark:stroke-gray-600 fill-transparent"
@@ -35,9 +68,11 @@ export default function WithKnobAngleSlider() {
                 cy: "calc(var(--size) / 2)",
                 r: "var(--radius)",
                 strokeWidth: "var(--thickness)",
-              } as React.CSSProperties
+              }
             }
           />
+
+
           {/* Progress circle */}
           <circle
             className="fill-transparent"
@@ -58,7 +93,7 @@ export default function WithKnobAngleSlider() {
                 transformOrigin: "center",
                 transform: "rotate(-90deg)",
                 stroke: "url(#progressGradient)",
-              } as React.CSSProperties
+              }
             }
           />
           {/* Gradient definitions */}

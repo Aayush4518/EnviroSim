@@ -28,6 +28,7 @@ const Home = () => {
   return (
     <main className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <Nav />
+      
 
       <div className="mx-auto max-w-6xl px-6 py-12 sm:px-8">
         <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
