@@ -60,7 +60,8 @@ export default function Map() {
 
   // HEATMAP LAYER TOGGLE FUNCTIONALITY
   const addHeatmapLayer = async (type) => {
-    const L = await import("leaflet");
+    const LeafletModule = await import("leaflet");
+    const L = LeafletModule.default || LeafletModule;
     const map = mapInstanceRef.current;
     const points = RISK_DATA[type];
 
@@ -151,29 +152,34 @@ export default function Map() {
     async function initMap() {
       if (!mapRef.current || mapInstanceRef.current) return;
 
-      const L = await import("leaflet");
+      try {
+        const LeafletModule = await import("leaflet");
+        const L = LeafletModule.default || LeafletModule;
 
-      if (!isMounted || !mapRef.current) return;
+        if (!isMounted || !mapRef.current) return;
 
-      const map = L.map(mapRef.current, {
-        scrollWheelZoom: true,
-        dragging: true,
-        zoomControl: true,
-      }).setView(INITIAL_CENTER, INITIAL_ZOOM);
+        const map = L.map(mapRef.current, {
+          scrollWheelZoom: true,
+          dragging: true,
+          zoomControl: true,
+        }).setView(INITIAL_CENTER, INITIAL_ZOOM);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
-      }).addTo(map);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "&copy; OpenStreetMap contributors",
+        }).addTo(map);
 
-      mapInstanceRef.current = map;
-      map.invalidateSize();
-      
-      // Give map time to fully initialize before allowing interactions
-      setTimeout(() => {
-        if (isMounted) {
-          setMapReady(true);
-        }
-      }, 500);
+        mapInstanceRef.current = map;
+        map.invalidateSize();
+        
+        // Give map time to fully initialize before allowing interactions
+        setTimeout(() => {
+          if (isMounted) {
+            setMapReady(true);
+          }
+        }, 500);
+      } catch (error) {
+        console.error("Map initialization error:", error);
+      }
     }
 
     initMap();
@@ -189,8 +195,14 @@ export default function Map() {
   }, []);
 
   return (
-    <div className="relative w-full pointer-events-none" style={{ zIndex: 0 }}>
-      {/* HEATMAP TOGGLE BUTTON */}
+    <div className="relative w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
+      {/* MAP CONTAINER */}
+      <div
+        ref={mapRef}
+        className="map pointer-events-auto"
+        style={{ height: "100%", width: "100%", position: "absolute", top: 0, left: 0 }}
+        aria-label="Bangalore map"
+      />
       <button
         onClick={() => setIsHeatmapPanelOpen(!isHeatmapPanelOpen)}
         className="fixed z-40 flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-all duration-300 pointer-events-auto"
@@ -302,7 +314,7 @@ export default function Map() {
       <div
         ref={mapRef}
         className="map pointer-events-auto"
-        style={{ height: "400px", width: "100%" }}
+        style={{ height: "100%", width: "100%" }}
         aria-label="Bangalore map"
       />
     </div>

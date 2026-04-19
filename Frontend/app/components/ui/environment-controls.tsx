@@ -5,6 +5,8 @@ import { Thermometer, Wind, Cloud, Zap } from "lucide-react";
 
 const width = 150;
 const thickness = 16;
+const widthHorizontal = 100;
+const thicknessHorizontal = 12;
 
 interface EnvironmentValue {
   temperature: number;
@@ -16,11 +18,13 @@ interface EnvironmentValue {
 interface EnvironmentControlsProps {
   onValuesChange?: (values: EnvironmentValue) => void;
   className?: string;
+  layout?: 'vertical' | 'horizontal';
 }
 
 export default function EnvironmentControls({
   onValuesChange,
   className = "",
+  layout = "vertical",
 }: EnvironmentControlsProps) {
   const [values, setValues] = useState<EnvironmentValue>({
     temperature: (25 / 50) * 360,
@@ -80,18 +84,31 @@ export default function EnvironmentControls({
 
   return (
     <div
-      className={`bg-white/10 dark:bg-slate-900/30 backdrop-blur-md rounded-2xl border border-white/20 dark:border-slate-700/50 p-4 space-y-3 shadow-2xl ${className}`}
+      className={`bg-white/10 dark:bg-slate-900/30 backdrop-blur-md rounded-2xl border border-white/20 dark:border-slate-700/50 p-4 shadow-2xl ${className}`}
     >
-      <div className="space-y-1">
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-          🌍 Environment Simulator
-        </h2>
-        <p className="text-sm text-gray-300">
-          Adjust environmental parameters to simulate scenarios
-        </p>
-      </div>
+      {layout === 'vertical' && (
+        <div className="space-y-1 mb-4">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            🌍 Environment Simulator
+          </h2>
+          <p className="text-sm text-gray-300">
+            Adjust environmental parameters to simulate scenarios
+          </p>
+        </div>
+      )}
 
-      <div className="space-y-2">
+      {layout === 'horizontal' && (
+        <div className="space-y-1 mb-4">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            ⚙️ Controls
+          </h2>
+          <p className="text-xs text-gray-300">
+            Adjust environmental parameters
+          </p>
+        </div>
+      )}
+
+      <div className={layout === 'vertical' ? 'space-y-2' : 'grid grid-cols-2 md:grid-cols-4 gap-4'}>
         {environmentParams.map((param) => {
           const Icon = param.icon;
           const sliderValue = values[param.key];
@@ -101,37 +118,49 @@ export default function EnvironmentControls({
           return (
             <div
               key={param.key}
-              className="bg-white/5 dark:bg-slate-800/30 rounded-xl p-3 border border-white/10 dark:border-slate-700/30"
+              className={`bg-white/5 dark:bg-slate-800/30 rounded-xl p-3 border border-white/10 dark:border-slate-700/30 ${layout === 'horizontal' ? 'flex flex-col items-center' : ''}`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Icon className="w-5 h-5 text-white" />
-                  <div>
-                    <h3 className="font-semibold text-white">{param.label}</h3>
-                    <p className="text-xs text-gray-400">
-                      {Math.round(displayValue)} {param.unit}
-                    </p>
+              {layout === 'vertical' && (
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Icon className="w-5 h-5 text-white" />
+                    <div>
+                      <h3 className="font-semibold text-white">{param.label}</h3>
+                      <p className="text-xs text-gray-400">
+                        {Math.round(displayValue)} {param.unit}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {layout === 'horizontal' && (
+                <div className="text-center mb-2">
+                  <Icon className="w-4 h-4 text-white mx-auto mb-1" />
+                  <h3 className="font-semibold text-white text-xs">{param.label}</h3>
+                  <p className="text-xs text-gray-400">
+                    {Math.round(displayValue)} {param.unit}
+                  </p>
+                </div>
+              )}
 
               <AngleSlider.Root
                 value={sliderValue}
                 onValueChange={(details) => {
                   handleValueChange(param.key, details.value);
                 }}
-                className="relative w-[150px] h-[150px] flex items-center justify-center mx-auto"
+                className={`relative flex items-center justify-center overflow-visible ${layout === 'vertical' ? 'w-[150px] h-[150px] mx-auto' : 'w-[100px] h-[100px]'}`}
               >
                 <AngleSlider.Control className="absolute inset-0">
                   <svg
-                    width={width}
-                    height={width}
-                    viewBox={`0 0 ${width} ${width}`}
+                    width={layout === 'vertical' ? width : widthHorizontal}
+                    height={layout === 'vertical' ? width : widthHorizontal}
+                    viewBox={`0 0 ${layout === 'vertical' ? width : widthHorizontal} ${layout === 'vertical' ? width : widthHorizontal}`}
                     className={`[--gradient-start:var(--color-start)] [--gradient-end:var(--color-end)]`}
                     style={
                       {
-                        "--size": `${width}px`,
-                        "--thickness": `${thickness}px`,
+                        "--size": `${layout === 'vertical' ? width : widthHorizontal}px`,
+                        "--thickness": `${layout === 'vertical' ? thickness : thicknessHorizontal}px`,
                         "--percent": `${percentValue}`,
                         "--color-start": `rgb(${param.key === "temperature" ? "255, 0, 0" : param.key === "pollution" ? "139, 69, 19" : param.key === "rainfall" ? "0, 150, 255" : "173, 216, 230"})`,
                         "--color-end": `rgb(${param.key === "temperature" ? "255, 255, 0" : param.key === "pollution" ? "139, 139, 139" : param.key === "rainfall" ? "0, 255, 255" : "255, 255, 255"})`,
@@ -201,12 +230,6 @@ export default function EnvironmentControls({
                 </AngleSlider.Control>
                 <AngleSlider.HiddenInput />
               </AngleSlider.Root>
-
-              <div className="mt-1 flex justify-between items-center text-xs text-gray-400">
-                <span>{param.min}{param.unit}</span>
-                <span>{Math.round(displayValue)}{param.unit}</span>
-                <span>{param.max}{param.unit}</span>
-              </div>
             </div>
           );
         })}

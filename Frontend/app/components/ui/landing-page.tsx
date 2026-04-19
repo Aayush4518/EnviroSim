@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"; 
 import Globe from "@/app/components/globe";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 // Reusable ScrollGlobe component following shadcn/ui patterns
 interface ScrollGlobeProps {
@@ -13,7 +14,12 @@ interface ScrollGlobeProps {
     description: string;
     align?: 'left' | 'center' | 'right';
     features?: { title: string; description: string }[];
-    actions?: { label: string; variant: 'primary' | 'secondary'; onClick?: () => void }[];
+    actions?: {
+      label: string;
+      variant: 'primary' | 'secondary';
+      actionId?: 'auto-tour' | 'scroll-next';
+      onClick?: () => void;
+    }[];
   }[];
   globeConfig?: {
     positions: {
@@ -46,12 +52,12 @@ function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, className }: 
   const [activeSection, setActiveSection] = useState(0);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [globeTransform, setGlobeTransform] = useState("");
-  const [showNavLabel, setShowNavLabel] = useState(false);
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<(HTMLElement | null)[]>([]);
-  const lastScrollTime = useRef(0);
   const animationFrameId = useRef<number | undefined>(undefined);
   const navLabelTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const autoScrollAbortRef = useRef(false);
   
   // Pre-calculate positions for performance
   const calculatedPositions = useMemo(() => {
@@ -95,7 +101,87 @@ function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, className }: 
     setGlobeTransform(transform);
 
     setActiveSection(newActiveSection);
-  }, [calculatedPositions, activeSection]);
+  }, [calculatedPositions]);
+
+  const wait = useCallback((duration: number) => {
+    return new Promise<void>((resolve) => {
+      window.setTimeout(resolve, duration);
+    });
+  }, []);
+
+  const stopAutoScroll = useCallback(() => {
+    autoScrollAbortRef.current = true;
+    setIsAutoScrolling(false);
+  }, []);
+
+  const scrollToPosition = useCallback((targetY: number, duration = 1600) => {
+    return new Promise<void>((resolve) => {
+      const startY = window.scrollY;
+      const distance = targetY - startY;
+      const startTime = performance.now();
+
+      const easeInOutCubic = (progress: number) => {
+        return progress < 0.5
+          ? 4 * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      };
+
+      const step = (currentTime: number) => {
+        if (autoScrollAbortRef.current) {
+          resolve();
+          return;
+        }
+
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easedProgress = easeInOutCubic(progress);
+
+        window.scrollTo({
+          top: startY + distance * easedProgress,
+          behavior: "auto",
+        });
+
+        if (progress < 1) {
+          requestAnimationFrame(step);
+          return;
+        }
+
+        resolve();
+      };
+
+      requestAnimationFrame(step);
+    });
+  }, []);
+
+  const scrollSectionIntoView = useCallback(async (index: number) => {
+    const section = sectionRefs.current[index];
+    if (!section) return;
+
+    const sectionTop = section.offsetTop;
+    const targetY = Math.max(sectionTop - (window.innerHeight - section.offsetHeight) / 2, 0);
+
+    await scrollToPosition(targetY, 1800);
+  }, [scrollToPosition]);
+
+  const startAutoJourney = useCallback(async () => {
+    if (isAutoScrolling) return;
+
+    autoScrollAbortRef.current = false;
+    setIsAutoScrolling(true);
+
+    for (let index = 1; index < sections.length; index += 1) {
+      if (autoScrollAbortRef.current) break;
+
+      await scrollSectionIntoView(index);
+
+      if (autoScrollAbortRef.current) break;
+
+      await wait(index === sections.length - 1 ? 1800 : 2200);
+    }
+
+    autoScrollAbortRef.current = false;
+    setIsAutoScrolling(false);
+  }, [isAutoScrolling, scrollSectionIntoView, sections.length, wait]);
 
   // Throttled scroll handler with RAF
   useEffect(() => {
@@ -125,6 +211,24 @@ function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, className }: 
       }
     };
   }, [updateScrollPosition]);
+
+  useEffect(() => {
+    const interruptAutoScroll = () => {
+      if (isAutoScrolling) {
+        stopAutoScroll();
+      }
+    };
+
+    window.addEventListener("wheel", interruptAutoScroll, { passive: true });
+    window.addEventListener("touchstart", interruptAutoScroll, { passive: true });
+    window.addEventListener("keydown", interruptAutoScroll);
+
+    return () => {
+      window.removeEventListener("wheel", interruptAutoScroll);
+      window.removeEventListener("touchstart", interruptAutoScroll);
+      window.removeEventListener("keydown", interruptAutoScroll);
+    };
+  }, [isAutoScrolling, stopAutoScroll]);
 
   // Initial globe position
   useEffect(() => {
@@ -307,7 +411,23 @@ function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, className }: 
                 {section.actions.map((action, actionIndex) => (
                   <button
                     key={action.label}
-                    onClick={action.onClick}
+                    onClick={() => {
+                      if (action.actionId === "auto-tour") {
+                        startAutoJourney();
+                        return;
+                      }
+
+                      if (action.actionId === "scroll-next") {
+                        const nextIndex = Math.min(index + 1, sections.length - 1);
+                        sectionRefs.current[nextIndex]?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "center",
+                        });
+                        return;
+                      }
+
+                      action.onClick?.();
+                    }}
                     className={cn(
                       "group relative px-6 sm:px-8 py-3 sm:py-4 rounded-lg sm:rounded-xl font-medium transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] text-sm sm:text-base",
                       "hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/20 w-full sm:w-auto",
@@ -317,7 +437,9 @@ function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, className }: 
                     )}
                     style={{ animationDelay: `${actionIndex * 0.1 + 0.2}s` }}
                   >
-                    <span className="relative z-10">{action.label}</span>
+                    <span className="relative z-10">
+                      {action.actionId === "auto-tour" && isAutoScrolling ? "Journey In Progress" : action.label}
+                    </span>
                     {action.variant === 'primary' && (
                       <div className="absolute inset-0 rounded-lg sm:rounded-xl bg-gradient-to-r from-primary to-primary/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     )}
@@ -334,6 +456,8 @@ function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, className }: 
 
 // Demo component showcasing the ScrollGlobe
 export default function GlobeScrollDemo() {
+  const router = useRouter();
+
   const demoSections = [
     {
       id: "hero",
@@ -343,8 +467,8 @@ export default function GlobeScrollDemo() {
       description: "Journey through an immersive experience where technology meets innovation. Watch as perspectives shift and possibilities unfold with every interaction, creating a symphony of digital artistry.",
       align: "left" as const,
       actions: [
-        { label: "Begin Journey", variant: "primary" as const, onClick: () => console.log("Get started clicked") },
-        { label: "Learn More", variant: "secondary" as const, onClick: () => console.log("Learn more clicked") },
+        { label: "Begin Journey", variant: "primary" as const, actionId: "auto-tour" as const },
+        { label: "Learn More", variant: "secondary" as const, actionId: "scroll-next" as const },
       ]
     },
     {
@@ -375,7 +499,7 @@ export default function GlobeScrollDemo() {
       description: "In this moment of unity, we see not just a planet, but a canvas of infinite human potential. Every connection represents hope, every innovation builds bridges to our collective future of endless possibilities.",
       align: "center" as const,
       actions: [
-        { label: "Join the Movement", variant: "primary" as const, onClick: () => console.log("Join clicked") },
+        { label: "Join the Movement", variant: "primary" as const, onClick: () => router.push("/home") },
         { label: "Explore More", variant: "secondary" as const, onClick: () => console.log("Explore clicked") }
       ]
     }
