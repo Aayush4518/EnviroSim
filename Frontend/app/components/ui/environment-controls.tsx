@@ -1,7 +1,7 @@
 "use client";
 import { AngleSlider } from "@ark-ui/react/angle-slider";
 import { useState } from "react";
-import { Thermometer, Wind, Cloud, Zap } from "lucide-react";
+import { Thermometer, Wind, Cloud, Leaf } from "lucide-react";
 
 const width = 150;
 const thickness = 16;
@@ -12,7 +12,7 @@ interface EnvironmentValue {
   temperature: number;
   pollution: number;
   rainfall: number;
-  windSpeed: number;
+  vegetation: number;
 }
 
 interface EnvironmentControlsProps {
@@ -30,13 +30,45 @@ export default function EnvironmentControls({
     temperature: (25 / 50) * 360,
     pollution: (30 / 100) * 360,
     rainfall: 45,
-    windSpeed: (60 / 100) * 360,
+    vegetation: (60 / 100) * 360,
   });
 
   const handleValueChange = (key: keyof EnvironmentValue, value: number) => {
     const newValues = { ...values, [key]: value };
     setValues(newValues);
     onValuesChange?.(newValues);
+
+    // Make API call to backend with debouncing
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      const scaledValues = {
+        temperature: (newValues.temperature / 360) * 50,
+        pollution: (newValues.pollution / 360) * 100,
+        rainfall: (newValues.rainfall / 360) * 360,
+        vegetation: (newValues.vegetation / 360) * 100,
+      };
+
+      fetch("http://localhost:6969/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scaledValues),
+        signal: controller.signal,
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("✅ Backend response:", data);
+        })
+        .catch((err) => {
+          if (err.name !== "AbortError") {
+            console.error("API Error:", err);
+          }
+        });
+    }, 300);
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
   };
 
   const environmentParams = [
@@ -71,12 +103,12 @@ export default function EnvironmentControls({
       max: 360,
     },
     {
-      key: "windSpeed" as const,
-      label: "Wind Speed",
-      unit: "km/h",
-      icon: Zap,
-      color: "from-green-400 to-cyan-500",
-      darkColor: "dark:from-green-300 dark:to-cyan-400",
+      key: "vegetation" as const,
+      label: "Vegetation",
+      unit: "%",
+      icon: Leaf,
+      color: "from-green-400 to-emerald-500",
+      darkColor: "dark:from-green-300 dark:to-emerald-400",
       min: 0,
       max: 100,
     },

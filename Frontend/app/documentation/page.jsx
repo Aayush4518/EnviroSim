@@ -76,10 +76,10 @@ const Documentation = () => {
                 </p>
               </div>
               <div>
-                <h3 className="mb-2 font-semibold text-slate-900 dark:text-white">Wind Speed</h3>
+                <h3 className="mb-2 font-semibold text-slate-900 dark:text-white">Vegetation</h3>
                 <p className="text-slate-700 dark:text-slate-300">
-                  Provides an additional stress factor for scenario testing. Wind speed can help represent conditions
-                  that affect exposure, comfort, and structural resilience in the built environment.
+                  Represents green coverage and plant density in the area. Vegetation levels affect temperature regulation,
+                  air quality, and overall environmental health through natural cooling and pollution absorption.
                 </p>
               </div>
             </div>

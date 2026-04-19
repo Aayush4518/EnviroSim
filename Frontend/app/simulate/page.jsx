@@ -10,7 +10,7 @@ const Simulate = () => {
     temperature: 25,
     pollution: 30,
     rainfall: 45,
-    windSpeed: 60,
+    vegetation: 60,
   });
 
   const [stars, setStars] = useState([]);
@@ -42,7 +42,7 @@ const Simulate = () => {
       temperature: (values.temperature / 360) * 50,
       pollution: (values.pollution / 360) * 100,
       rainfall: (values.rainfall / 360) * 360,
-      windSpeed: (values.windSpeed / 360) * 100,
+      vegetation: (values.vegetation / 360) * 100,
     };
     setEnvironmentValues(scaledValues);
     console.log('Environment values updated:', scaledValues);
@@ -53,7 +53,7 @@ const Simulate = () => {
     (environmentValues.temperature / 50 * 25) +
     (environmentValues.pollution / 100 * 25) +
     (environmentValues.rainfall / 360 * 25) +
-    (environmentValues.windSpeed / 100 * 25)
+    (environmentValues.vegetation / 100 * 25)
   );
 
   const getRiskColor = (risk) => {
@@ -183,8 +183,8 @@ const Simulate = () => {
                     <span className="font-semibold text-cyan-400">{environmentValues.rainfall.toFixed(1)} mm</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Wind Speed</span>
-                    <span className="font-semibold text-purple-400">{environmentValues.windSpeed.toFixed(1)} km/h</span>
+                    <span className="text-gray-400">Vegetation</span>
+                    <span className="font-semibold text-green-400">{environmentValues.vegetation.toFixed(1)} %</span>
                   </div>
                 </div>
               </div>
