@@ -27,7 +27,7 @@ app.post('/simulate', (req, res) => {
   console.log('Simulated result:', result);
   res.json(result);
 });
-
 app.listen(6969, ()=>{
     console.log('Backend running on http://localhost:6969');
 })
+
