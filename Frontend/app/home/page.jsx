@@ -10,7 +10,7 @@ const Home = () => {
     temperature: 25,
     pollution: 30,
     rainfall: 45,
-    windSpeed: 60,
+    vegetation: 60,
   });
   const handleEnvironmentChange = (values) => {
     // Convert slider values (0-360) back to display ranges for backend
@@ -18,7 +18,7 @@ const Home = () => {
       temperature: (values.temperature / 360) * 50,
       pollution: (values.pollution / 360) * 100,
       rainfall: (values.rainfall / 360) * 360,
-      windSpeed: (values.windSpeed / 360) * 100,
+      vegetation: (values.vegetation / 360) * 100,
     };
     setEnvironmentValues(scaledValues);
     // TODO: Send these values to your backend/API to update heatmap data

@@ -1,38 +1,74 @@
 "use client";
 import { AngleSlider } from "@ark-ui/react/angle-slider";
 import { useState } from "react";
-import { Thermometer, Wind, Cloud, Zap } from "lucide-react";
+import { Thermometer, Wind, Cloud, Leaf } from "lucide-react";
 
 const width = 150;
 const thickness = 16;
+const widthHorizontal = 100;
+const thicknessHorizontal = 12;
 
 interface EnvironmentValue {
   temperature: number;
   pollution: number;
   rainfall: number;
-  windSpeed: number;
+  vegetation: number;
 }
 
 interface EnvironmentControlsProps {
   onValuesChange?: (values: EnvironmentValue) => void;
   className?: string;
+  layout?: 'vertical' | 'horizontal';
 }
 
 export default function EnvironmentControls({
   onValuesChange,
   className = "",
+  layout = "vertical",
 }: EnvironmentControlsProps) {
   const [values, setValues] = useState<EnvironmentValue>({
     temperature: (25 / 50) * 360,
     pollution: (30 / 100) * 360,
     rainfall: 45,
-    windSpeed: (60 / 100) * 360,
+    vegetation: (60 / 100) * 360,
   });
 
   const handleValueChange = (key: keyof EnvironmentValue, value: number) => {
     const newValues = { ...values, [key]: value };
     setValues(newValues);
     onValuesChange?.(newValues);
+
+    // Make API call to backend with debouncing
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      const scaledValues = {
+        temperature: (newValues.temperature / 360) * 50,
+        pollution: (newValues.pollution / 360) * 100,
+        rainfall: (newValues.rainfall / 360) * 360,
+        vegetation: (newValues.vegetation / 360) * 100,
+      };
+
+      fetch("http://localhost:6969/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scaledValues),
+        signal: controller.signal,
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("✅ Backend response:", data);
+        })
+        .catch((err) => {
+          if (err.name !== "AbortError") {
+            console.error("API Error:", err);
+          }
+        });
+    }, 300);
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
   };
 
   const environmentParams = [
@@ -67,12 +103,12 @@ export default function EnvironmentControls({
       max: 360,
     },
     {
-      key: "windSpeed" as const,
-      label: "Wind Speed",
-      unit: "km/h",
-      icon: Zap,
-      color: "from-green-400 to-cyan-500",
-      darkColor: "dark:from-green-300 dark:to-cyan-400",
+      key: "vegetation" as const,
+      label: "Vegetation",
+      unit: "%",
+      icon: Leaf,
+      color: "from-green-400 to-emerald-500",
+      darkColor: "dark:from-green-300 dark:to-emerald-400",
       min: 0,
       max: 100,
     },
@@ -80,18 +116,31 @@ export default function EnvironmentControls({
 
   return (
     <div
-      className={`bg-white/10 dark:bg-slate-900/30 backdrop-blur-md rounded-2xl border border-white/20 dark:border-slate-700/50 p-4 space-y-3 shadow-2xl ${className}`}
+      className={`bg-white/10 dark:bg-slate-900/30 backdrop-blur-md rounded-2xl border border-white/20 dark:border-slate-700/50 p-4 shadow-2xl ${className}`}
     >
-      <div className="space-y-1">
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-          🌍 Environment Simulator
-        </h2>
-        <p className="text-sm text-gray-300">
-          Adjust environmental parameters to simulate scenarios
-        </p>
-      </div>
+      {layout === 'vertical' && (
+        <div className="space-y-1 mb-4">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            🌍 Environment Simulator
+          </h2>
+          <p className="text-sm text-gray-300">
+            Adjust environmental parameters to simulate scenarios
+          </p>
+        </div>
+      )}
 
-      <div className="space-y-2">
+      {layout === 'horizontal' && (
+        <div className="space-y-1 mb-4">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            ⚙️ Controls
+          </h2>
+          <p className="text-xs text-gray-300">
+            Adjust environmental parameters
+          </p>
+        </div>
+      )}
+
+      <div className={layout === 'vertical' ? 'space-y-2' : 'grid grid-cols-2 md:grid-cols-4 gap-4'}>
         {environmentParams.map((param) => {
           const Icon = param.icon;
           const sliderValue = values[param.key];
@@ -101,37 +150,49 @@ export default function EnvironmentControls({
           return (
             <div
               key={param.key}
-              className="bg-white/5 dark:bg-slate-800/30 rounded-xl p-3 border border-white/10 dark:border-slate-700/30"
+              className={`bg-white/5 dark:bg-slate-800/30 rounded-xl p-3 border border-white/10 dark:border-slate-700/30 ${layout === 'horizontal' ? 'flex flex-col items-center' : ''}`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Icon className="w-5 h-5 text-white" />
-                  <div>
-                    <h3 className="font-semibold text-white">{param.label}</h3>
-                    <p className="text-xs text-gray-400">
-                      {Math.round(displayValue)} {param.unit}
-                    </p>
+              {layout === 'vertical' && (
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Icon className="w-5 h-5 text-white" />
+                    <div>
+                      <h3 className="font-semibold text-white">{param.label}</h3>
+                      <p className="text-xs text-gray-400">
+                        {Math.round(displayValue)} {param.unit}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {layout === 'horizontal' && (
+                <div className="text-center mb-2">
+                  <Icon className="w-4 h-4 text-white mx-auto mb-1" />
+                  <h3 className="font-semibold text-white text-xs">{param.label}</h3>
+                  <p className="text-xs text-gray-400">
+                    {Math.round(displayValue)} {param.unit}
+                  </p>
+                </div>
+              )}
 
               <AngleSlider.Root
                 value={sliderValue}
                 onValueChange={(details) => {
                   handleValueChange(param.key, details.value);
                 }}
-                className="relative w-[150px] h-[150px] flex items-center justify-center mx-auto"
+                className={`relative flex items-center justify-center overflow-visible ${layout === 'vertical' ? 'w-[150px] h-[150px] mx-auto' : 'w-[100px] h-[100px]'}`}
               >
                 <AngleSlider.Control className="absolute inset-0">
                   <svg
-                    width={width}
-                    height={width}
-                    viewBox={`0 0 ${width} ${width}`}
+                    width={layout === 'vertical' ? width : widthHorizontal}
+                    height={layout === 'vertical' ? width : widthHorizontal}
+                    viewBox={`0 0 ${layout === 'vertical' ? width : widthHorizontal} ${layout === 'vertical' ? width : widthHorizontal}`}
                     className={`[--gradient-start:var(--color-start)] [--gradient-end:var(--color-end)]`}
                     style={
                       {
-                        "--size": `${width}px`,
-                        "--thickness": `${thickness}px`,
+                        "--size": `${layout === 'vertical' ? width : widthHorizontal}px`,
+                        "--thickness": `${layout === 'vertical' ? thickness : thicknessHorizontal}px`,
                         "--percent": `${percentValue}`,
                         "--color-start": `rgb(${param.key === "temperature" ? "255, 0, 0" : param.key === "pollution" ? "139, 69, 19" : param.key === "rainfall" ? "0, 150, 255" : "173, 216, 230"})`,
                         "--color-end": `rgb(${param.key === "temperature" ? "255, 255, 0" : param.key === "pollution" ? "139, 139, 139" : param.key === "rainfall" ? "0, 255, 255" : "255, 255, 255"})`,
@@ -201,12 +262,6 @@ export default function EnvironmentControls({
                 </AngleSlider.Control>
                 <AngleSlider.HiddenInput />
               </AngleSlider.Root>
-
-              <div className="mt-1 flex justify-between items-center text-xs text-gray-400">
-                <span>{param.min}{param.unit}</span>
-                <span>{Math.round(displayValue)}{param.unit}</span>
-                <span>{param.max}{param.unit}</span>
-              </div>
             </div>
           );
         })}

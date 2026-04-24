@@ -1,28 +1,33 @@
 const express = require('express');
-const cors = require('cors'); //for cross-origin resource sharing which means allowing the frontend to access the backend
+const cors = require('cors');
+const { runSimulation } = require('../Data/simulation');
 
 const app = express();
 
 app.use(cors())
-app.use(express.json()) //to parse the incoming request body as JSON
+app.use(express.json())
 
 //ROUTES
 
-app.post("/simulate", (req, res) => {
-    const { rainfall, pollution, vegetation } = req.body;
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'EnviroSim backend is running',
+    routes: ['POST /simulate'],
+  });
+});
 
-    let floodRisk = "low";
-    let heatLevel = "low"
-    let aqi = "good"            //50 rakh sakta tha lekin chool max hai
+app.post('/simulate', (req, res) => {
+  console.log('🔥 HIT BACKEND');
+  console.log('Incoming:', req.body);
 
-    if (rainfall > 70) floodRisk = "high";
-    if (vegetation < 30) heatLevel = "high";
-    if (pollution > 60) airQuality = "poor";            //change logic later
+  const { rainfall = 0, pollution = 0, vegetation = 0 } = req.body;
+  const result = runSimulation({ rainfall, pollution, vegetation });
 
-    res.json({floodRisk, heatLevel, aqi})
-
-})
+  console.log('Simulated result:', result);
+  res.json(result);
+});
 
 app.listen(6969, ()=>{
-    console.log("Backend running on http://localhost:6969");
+    console.log('Backend running on http://localhost:6969');
 })
