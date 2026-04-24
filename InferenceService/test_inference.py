@@ -69,3 +69,26 @@ def test_vegetation_not_in_model():
     assert r1["flood_risk_probability"] == r2["flood_risk_probability"]
     assert r1["predicted_pm25_next_day"] == r2["predicted_pm25_next_day"]
     assert r1["predicted_temp_max_next_day"] == r2["predicted_temp_max_next_day"]
+
+
+def test_combined_risk_is_model_driven_and_slider_sensitive():
+    """Risk score should be computed from model outputs and respond to input changes."""
+    low = client.post("/predict", json={
+        "temperature": 22, "pollution": 15, "rainfall": 5, "vegetation": 60, "month": 1
+    })
+    high = client.post("/predict", json={
+        "temperature": 40, "pollution": 180, "rainfall": 300, "vegetation": 60, "month": 7
+    })
+
+    assert low.status_code == 200
+    assert high.status_code == 200
+
+    low_json = low.json()
+    high_json = high.json()
+
+    low_risk = low_json["environmental_risk"]["combined_risk_score"]
+    high_risk = high_json["environmental_risk"]["combined_risk_score"]
+
+    assert 0 <= low_risk <= 100
+    assert 0 <= high_risk <= 100
+    assert high_risk > low_risk

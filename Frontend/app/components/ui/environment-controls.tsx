@@ -1,7 +1,8 @@
 "use client";
 import { AngleSlider } from "@ark-ui/react/angle-slider";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Thermometer, Wind, Cloud, Leaf } from "lucide-react";
+import { simulate } from "@/app/utils/api";
 
 const width = 150;
 const thickness = 16;
@@ -17,12 +18,18 @@ interface EnvironmentValue {
 
 interface EnvironmentControlsProps {
   onValuesChange?: (values: EnvironmentValue) => void;
+  onPredictionChange?: (payload: {
+    loading: boolean;
+    error?: string;
+    data?: any;
+  }) => void;
   className?: string;
   layout?: 'vertical' | 'horizontal';
 }
 
 export default function EnvironmentControls({
   onValuesChange,
+  onPredictionChange,
   className = "",
   layout = "vertical",
 }: EnvironmentControlsProps) {
@@ -33,43 +40,57 @@ export default function EnvironmentControls({
     vegetation: (60 / 100) * 360,
   });
 
-  const handleValueChange = (key: keyof EnvironmentValue, value: number) => {
-    const newValues = { ...values, [key]: value };
-    setValues(newValues);
-    onValuesChange?.(newValues);
+  // Refs to avoid stale closures and infinite-loop from callback identity changes
+  const predictionCbRef = useRef(onPredictionChange);
+  predictionCbRef.current = onPredictionChange;
 
-    // Make API call to backend with debouncing
-    const controller = new AbortController();
+  const onValuesChangeRef = useRef(onValuesChange);
+  onValuesChangeRef.current = onValuesChange;
+
+  const handleValueChange = (key: keyof EnvironmentValue, value: number) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Notify parent of value changes AFTER render (avoids setState-during-render error)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    onValuesChangeRef.current?.(values);
+  }, [values]);
+
+  // Debounced ML prediction call — only depends on `values`
+  useEffect(() => {
+    predictionCbRef.current?.({ loading: true });
+
     const timeout = setTimeout(() => {
       const scaledValues = {
-        temperature: (newValues.temperature / 360) * 50,
-        pollution: (newValues.pollution / 360) * 100,
-        rainfall: (newValues.rainfall / 360) * 360,
-        vegetation: (newValues.vegetation / 360) * 100,
+        temperature: (values.temperature / 360) * 50,
+        pollution: (values.pollution / 360) * 100,
+        rainfall: (values.rainfall / 360) * 360,
+        vegetation: (values.vegetation / 360) * 100,
+        month: new Date().getMonth() + 1,
       };
 
-      fetch("http://localhost:6969/simulate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(scaledValues),
-        signal: controller.signal,
-      })
-        .then((res) => res.json())
+      simulate(scaledValues)
         .then((data) => {
-          console.log("✅ Backend response:", data);
+          predictionCbRef.current?.({ loading: false, data });
         })
         .catch((err) => {
-          if (err.name !== "AbortError") {
-            console.error("API Error:", err);
-          }
+          predictionCbRef.current?.({
+            loading: false,
+            error: err?.message || "Failed to fetch prediction",
+          });
         });
-    }, 300);
+    }, 400);
 
     return () => {
       clearTimeout(timeout);
-      controller.abort();
     };
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values]);
 
   const environmentParams = [
     {

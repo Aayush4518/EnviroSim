@@ -4,7 +4,11 @@ export async function simulate(data){
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify(data)
-        })
+        });
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Simulate request failed (${res.status}): ${text}`);
+        }
         const result = await res.json();
         return result;
 

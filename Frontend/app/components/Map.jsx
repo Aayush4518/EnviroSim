@@ -310,13 +310,6 @@ export default function Map() {
       </div>
       )}
 
-      {/* MAP CONTAINER */}
-      <div
-        ref={mapRef}
-        className="map pointer-events-auto"
-        style={{ height: "100%", width: "100%" }}
-        aria-label="Bangalore map"
-      />
     </div>
   );
 }

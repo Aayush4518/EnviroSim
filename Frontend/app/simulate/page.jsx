@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Map from '../components/Map';
 import EnvironmentControls from '@/app/components/ui/environment-controls';
 import { Navbar } from '@/app/components/ui/mini-navbar';
@@ -11,6 +11,11 @@ const Simulate = () => {
     pollution: 30,
     rainfall: 45,
     vegetation: 60,
+  });
+  const [predictionState, setPredictionState] = useState({
+    loading: false,
+    error: "",
+    data: null,
   });
 
   const [stars, setStars] = useState([]);
@@ -37,7 +42,7 @@ const Simulate = () => {
     setStars(generatedStars);
   }, []);
 
-  const handleEnvironmentChange = (values) => {
+  const handleEnvironmentChange = useCallback((values) => {
     const scaledValues = {
       temperature: (values.temperature / 360) * 50,
       pollution: (values.pollution / 360) * 100,
@@ -45,30 +50,18 @@ const Simulate = () => {
       vegetation: (values.vegetation / 360) * 100,
     };
     setEnvironmentValues(scaledValues);
-    console.log('Environment values updated:', scaledValues);
-  };
+  }, []);
 
-  // Calculate risk based on values
-  const overallRisk = Math.round(
-    (environmentValues.temperature / 50 * 25) +
-    (environmentValues.pollution / 100 * 25) +
-    (environmentValues.rainfall / 360 * 25) +
-    (environmentValues.vegetation / 100 * 25)
-  );
+  // Extract ML prediction values
+  const floodProb = predictionState.data?.prediction?.flood_risk_probability;
+  const predictedPM25 = predictionState.data?.prediction?.predicted_pm25_next_day;
+  const predictedTemp = predictionState.data?.prediction?.predicted_temp_max_next_day;
 
-  const getRiskColor = (risk) => {
-    if (risk < 25) return 'from-green-500 to-emerald-500';
-    if (risk < 50) return 'from-yellow-500 to-amber-500';
-    if (risk < 75) return 'from-orange-500 to-red-500';
-    return 'from-red-600 to-red-800';
-  };
-
-  const getRiskLevel = (risk) => {
-    if (risk < 25) return 'Low Risk';
-    if (risk < 50) return 'Moderate Risk';
-    if (risk < 75) return 'High Risk';
-    return 'Critical Risk';
-  };
+  // Environmental risk score — computed server-side from ML model outputs
+  // Uses EPA AQI breakpoints for PM2.5 + IMD Bangalore thresholds for temperature
+  const envRisk = predictionState.data?.prediction?.environmental_risk;
+  const combinedRisk = Math.round(envRisk?.combined_risk_score ?? 0);
+  const riskLabel = envRisk?.combined_risk_label ?? "Loading...";
 
   return (
     <main className="min-h-screen bg-black text-white transition-colors duration-300 overflow-hidden">
@@ -133,34 +126,61 @@ const Simulate = () => {
           <div className="space-y-4">
             {/* Environment Controls with Sliders */}
             <div className="rounded-xl border border-slate-800 bg-slate-900/50 backdrop-blur-xl p-4 shadow-2xl">
-              <EnvironmentControls onValuesChange={handleEnvironmentChange} layout="horizontal" />
+              <EnvironmentControls
+                onValuesChange={handleEnvironmentChange}
+                onPredictionChange={({ loading, error, data }) => {
+                  setPredictionState((prev) => ({
+                    loading,
+                    error: error || "",
+                    data: data !== undefined ? data : prev.data,
+                  }));
+                }}
+                layout="horizontal"
+              />
             </div>
 
             {/* Stats & Risk Below Controls */}
             <div className="grid gap-4 lg:grid-cols-3">
               {/* Risk Score Card */}
-              <div className={`rounded-xl border border-gradient bg-gradient-to-br ${getRiskColor(overallRisk)} p-0.5 shadow-2xl`}>
+              <div className={`rounded-xl border border-gradient bg-gradient-to-br ${
+                combinedRisk < 25 ? 'from-green-500 to-emerald-500' :
+                combinedRisk < 50 ? 'from-yellow-500 to-amber-500' :
+                combinedRisk < 75 ? 'from-orange-500 to-red-500' :
+                'from-red-600 to-red-800'
+              } p-0.5 shadow-2xl`}>
                 <div className="rounded-xl bg-slate-950 p-4 h-full flex flex-col justify-center">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-xl">🎯</span>
                     <h2 className="text-sm font-bold text-white">Risk Level</h2>
                   </div>
                   <div className="text-4xl font-bold mb-1 bg-gradient-to-r from-yellow-400 to-red-500 bg-clip-text text-transparent">
-                    {overallRisk}%
+                    {combinedRisk}%
                   </div>
                   <p className={`text-xs font-semibold ${
-                    overallRisk < 25 ? 'text-green-400' :
-                    overallRisk < 50 ? 'text-yellow-400' :
-                    overallRisk < 75 ? 'text-orange-400' : 'text-red-400'
+                    combinedRisk < 20 ? 'text-green-400' :
+                    combinedRisk < 40 ? 'text-yellow-400' :
+                    combinedRisk < 60 ? 'text-orange-400' :
+                    combinedRisk < 80 ? 'text-red-400' : 'text-red-500'
                   }`}>
-                    {getRiskLevel(overallRisk)}
+                    {riskLabel}
                   </p>
                   <div className="mt-3 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                     <div 
-                      className={`h-full bg-gradient-to-r ${getRiskColor(overallRisk)} transition-all duration-500`}
-                      style={{ width: `${overallRisk}%` }}
+                      className={`h-full bg-gradient-to-r ${
+                        combinedRisk < 25 ? 'from-green-500 to-emerald-500' :
+                        combinedRisk < 50 ? 'from-yellow-500 to-amber-500' :
+                        combinedRisk < 75 ? 'from-orange-500 to-red-500' :
+                        'from-red-600 to-red-800'
+                      } transition-all duration-500`}
+                      style={{ width: `${combinedRisk}%` }}
                     ></div>
                   </div>
+                  {predictionState.loading && (
+                    <p className="mt-2 text-[10px] text-blue-300">Fetching latest model prediction...</p>
+                  )}
+                  {predictionState.error && (
+                    <p className="mt-2 text-[10px] text-red-300">{predictionState.error}</p>
+                  )}
                 </div>
               </div>
 
@@ -172,11 +192,15 @@ const Simulate = () => {
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Temperature</span>
-                    <span className="font-semibold text-blue-400">{environmentValues.temperature.toFixed(1)}°C</span>
+                    <span className="font-semibold text-blue-400">
+                      {environmentValues.temperature.toFixed(1)}°C
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Pollution</span>
-                    <span className="font-semibold text-orange-400">{environmentValues.pollution.toFixed(1)} AQI</span>
+                    <span className="font-semibold text-orange-400">
+                      {environmentValues.pollution.toFixed(1)} µg/m³
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Rainfall</span>
@@ -192,21 +216,35 @@ const Simulate = () => {
               {/* Models Summary */}
               <div className="rounded-xl border border-slate-800 bg-slate-900/50 backdrop-blur-xl p-4 space-y-2">
                 <h3 className="font-bold text-white flex items-center gap-2 text-sm mb-2">
-                  <span>🧠</span> ML Models
+                  <span>🧠</span> ML Predictions
                 </h3>
                 <div className="space-y-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span>🌊</span>
-                    <span className="text-gray-400">Flood Risk Assessment</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 flex items-center gap-1"><span>🌊</span> Flood Probability</span>
+                    <span className="font-semibold text-blue-400">{typeof floodProb === "number" ? Math.round(floodProb * 100) : "--"}%</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span>💨</span>
-                    <span className="text-gray-400">Pollution Analysis</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 flex items-center gap-1"><span>💨</span> PM2.5 Next Day</span>
+                    <span className={`font-semibold ${(predictedPM25 ?? 0) > 150 ? 'text-red-400' : (predictedPM25 ?? 0) > 55 ? 'text-orange-400' : 'text-green-400'}`}>
+                      {predictedPM25 ?? "--"} µg/m³
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span>🌡️</span>
-                    <span className="text-gray-400">Temperature Impact</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 flex items-center gap-1"><span>🌡️</span> Max Temp Next Day</span>
+                    <span className={`font-semibold ${(predictedTemp ?? 0) > 37 ? 'text-red-400' : (predictedTemp ?? 0) > 33 ? 'text-orange-400' : 'text-green-400'}`}>
+                      {predictedTemp ?? "--"}°C
+                    </span>
                   </div>
+                  {envRisk && (
+                    <div className="mt-2 pt-2 border-t border-slate-700/50">
+                      <p className="text-[10px] text-gray-500 mb-1">Risk breakdown (EPA + IMD thresholds):</p>
+                      <div className="flex gap-2 text-[10px]">
+                        <span className="text-blue-300">🌊 {envRisk.flood_risk_score}%</span>
+                        <span className="text-orange-300">💨 {envRisk.air_quality_risk_score}%</span>
+                        <span className="text-red-300">🌡️ {envRisk.heat_stress_risk_score}%</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
