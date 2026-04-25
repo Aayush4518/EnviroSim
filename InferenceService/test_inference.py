@@ -61,14 +61,14 @@ def test_predict_input_echo():
     assert echo["month"] == 6
 
 
-def test_vegetation_not_in_model():
-    """Changing vegetation should not change predictions (it's not an ML feature)."""
+def test_vegetation_changes_combined_risk():
+    """Changing vegetation should change the scenario risk response."""
     base = {"temperature": 25, "pollution": 30, "rainfall": 45, "month": 4}
     r1 = client.post("/predict", json={**base, "vegetation": 10}).json()
     r2 = client.post("/predict", json={**base, "vegetation": 90}).json()
-    assert r1["flood_risk_probability"] == r2["flood_risk_probability"]
-    assert r1["predicted_pm25_next_day"] == r2["predicted_pm25_next_day"]
-    assert r1["predicted_temp_max_next_day"] == r2["predicted_temp_max_next_day"]
+    assert r1["metadata"]["vegetation_source"] == "Data/cleaned-data/vegetation-dummy.csv"
+    assert r1["environmental_risk"]["vegetation_stress_score"] > r2["environmental_risk"]["vegetation_stress_score"]
+    assert r1["environmental_risk"]["combined_risk_score"] > r2["environmental_risk"]["combined_risk_score"]
 
 
 def test_combined_risk_is_model_driven_and_slider_sensitive():

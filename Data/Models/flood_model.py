@@ -39,6 +39,7 @@ from sklearn.pipeline import Pipeline
 THIS_DIR = Path(__file__).resolve().parent
 DATA_DIR = THIS_DIR.parent / "cleaned-data"
 MERGED_CSV = DATA_DIR / "merged-data.csv"
+VEGETATION_CSV = DATA_DIR / "vegetation-dummy.csv"
 DEFAULT_ARTIFACT = THIS_DIR / "flood_model.joblib"
 
 RAIN_COL = "Rain (mm)"
@@ -53,6 +54,22 @@ def _repo_root() -> Path:
     return THIS_DIR.parent.parent
 
 
+def add_dummy_vegetation(df: pd.DataFrame, csv_path: Path | None = None) -> pd.DataFrame:
+    """Attach monthly dummy vegetation percentage to each dated row."""
+    path = csv_path or VEGETATION_CSV
+    out = df.copy()
+    if not path.is_file():
+        out["vegetation"] = 60.0
+        return out
+
+    vegetation = pd.read_csv(path)
+    vegetation["Month"] = pd.to_numeric(vegetation["Month"], errors="coerce")
+    vegetation["Vegetation Index"] = pd.to_numeric(vegetation["Vegetation Index"], errors="coerce")
+    monthly = vegetation.dropna(subset=["Month", "Vegetation Index"]).set_index("Month")["Vegetation Index"]
+    out["vegetation"] = out["Date"].dt.month.map(monthly).astype(float).fillna(60.0)
+    return out
+
+
 def load_merged_data(csv_path: Path | None = None) -> pd.DataFrame:
     path = csv_path or MERGED_CSV
     if not path.is_file():
@@ -62,7 +79,7 @@ def load_merged_data(csv_path: Path | None = None) -> pd.DataFrame:
     if RAIN_COL not in df.columns:
         raise ValueError(f"Expected column {RAIN_COL!r} in {path}")
     df["rain_mm"] = pd.to_numeric(df[RAIN_COL], errors="coerce")
-    return df
+    return add_dummy_vegetation(df)
 
 
 def add_future_rainfall_sum(df: pd.DataFrame, days: int = 7) -> pd.Series:
@@ -75,6 +92,7 @@ def add_past_lags(df: pd.DataFrame, n_lags: int = N_LAGS) -> pd.DataFrame:
     out = df.copy()
     for k in range(1, n_lags + 1):
         out[f"rain_lag{k}"] = out["rain_mm"].shift(k)
+        out[f"vegetation_lag{k}"] = out["vegetation"].shift(k)
     out["month"] = out["Date"].dt.month
     return out
 
@@ -89,6 +107,7 @@ def build_xy(df: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray, list[str], flo
     d["future_7d_mm"] = add_future_rainfall_sum(d, days=7)
 
     lag_cols = [f"rain_lag{k}" for k in range(1, N_LAGS + 1)]
+    lag_cols += [f"vegetation_lag{k}" for k in range(1, N_LAGS + 1)]
     feature_cols = lag_cols + ["month"]
 
     d = d.dropna(subset=lag_cols + ["future_7d_mm"]).reset_index(drop=True)

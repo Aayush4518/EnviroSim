@@ -50,6 +50,10 @@ async function postSimulate(body) {
     assert(typeof data.prediction.flood_risk_probability === "number", "missing flood_risk");
     assert(typeof data.prediction.predicted_pm25_next_day === "number", "missing pm25");
     assert(typeof data.prediction.predicted_temp_max_next_day === "number", "missing temp");
+    assert(
+      data.prediction.metadata.vegetation_source === "Data/cleaned-data/vegetation-dummy.csv",
+      "missing vegetation source metadata"
+    );
   });
 
   await test("POST /simulate echoes input back", async () => {

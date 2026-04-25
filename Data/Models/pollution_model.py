@@ -29,6 +29,7 @@ from sklearn.pipeline import Pipeline
 THIS_DIR = Path(__file__).resolve().parent
 DATA_DIR = THIS_DIR.parent / "cleaned-data"
 MERGED_CSV = DATA_DIR / "merged-data.csv"
+VEGETATION_CSV = DATA_DIR / "vegetation-dummy.csv"
 DEFAULT_ARTIFACT = THIS_DIR / "pollution_model.joblib"
 
 N_LAGS = 14
@@ -51,6 +52,22 @@ def _repo_root() -> Path:
     return THIS_DIR.parent.parent
 
 
+def add_dummy_vegetation(df: pd.DataFrame, csv_path: Path | None = None) -> pd.DataFrame:
+    """Attach monthly dummy vegetation percentage to each dated row."""
+    path = csv_path or VEGETATION_CSV
+    out = df.copy()
+    if not path.is_file():
+        out["vegetation"] = 60.0
+        return out
+
+    vegetation = pd.read_csv(path)
+    vegetation["Month"] = pd.to_numeric(vegetation["Month"], errors="coerce")
+    vegetation["Vegetation Index"] = pd.to_numeric(vegetation["Vegetation Index"], errors="coerce")
+    monthly = vegetation.dropna(subset=["Month", "Vegetation Index"]).set_index("Month")["Vegetation Index"]
+    out["vegetation"] = out["Date"].dt.month.map(monthly).astype(float).fillna(60.0)
+    return out
+
+
 def load_merged_data(csv_path: Path | None = None) -> pd.DataFrame:
     path = csv_path or MERGED_CSV
     if not path.is_file():
@@ -61,7 +78,7 @@ def load_merged_data(csv_path: Path | None = None) -> pd.DataFrame:
         if raw not in df.columns:
             raise ValueError(f"Expected column {raw!r} in {path}")
         df[internal] = pd.to_numeric(df[raw], errors="coerce")
-    return df
+    return add_dummy_vegetation(df)
 
 
 def _lag_feature_dict(df: pd.DataFrame, n_lags: int) -> dict[str, pd.Series]:
@@ -70,6 +87,8 @@ def _lag_feature_dict(df: pd.DataFrame, n_lags: int) -> dict[str, pd.Series]:
         base = df[internal]
         for k in range(1, n_lags + 1):
             cols[f"{internal}_lag{k}"] = base.shift(k)
+    for k in range(1, n_lags + 1):
+        cols[f"vegetation_lag{k}"] = df["vegetation"].shift(k)
     return cols
 
 
@@ -84,6 +103,8 @@ def add_past_lags_multiseries(
         col = f"{internal}_d0"
         out[col] = df[internal].to_numpy()
         same_cols.append(col)
+    out["vegetation_d0"] = df["vegetation"].to_numpy()
+    same_cols.append("vegetation_d0")
     out["_pm25_next"] = df["pm25"].shift(-1).to_numpy()
     feature_names = list(lag_df.columns) + same_cols + ["month"]
     return out, feature_names
@@ -174,7 +195,7 @@ def train_full_pipeline(
         "feature_cols": feature_cols,
         "label_definition": "Predict PM2.5 (µg/m³) on day t+1 from lagged pollution/weather",
         "n_lags": N_LAGS,
-        "lag_series": [x[0] for x in LAG_BASE_COLS],
+        "lag_series": [x[0] for x in LAG_BASE_COLS] + ["vegetation"],
         "data_source": str(
             MERGED_CSV.relative_to(_repo_root())
             if MERGED_CSV.is_file() and _repo_root() in MERGED_CSV.parents

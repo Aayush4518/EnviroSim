@@ -82,7 +82,7 @@ cd Backend && node test_simulate.js
       "mode": "historical-lag-with-scenario-override",
       "historical_rows_used": 14,
       "lag_construction": "lag1=user_slider, lag2..14=real_dataset_tail",
-      "vegetation_note": "Not used by any ML model — UI-only parameter."
+      "vegetation_source": "Data/cleaned-data/vegetation-dummy.csv"
     }
   }
 }

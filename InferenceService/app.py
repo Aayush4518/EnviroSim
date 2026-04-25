@@ -29,6 +29,7 @@ logger = logging.getLogger("inference")
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = REPO_ROOT / "Data" / "Models"
 MERGED_CSV = REPO_ROOT / "Data" / "cleaned-data" / "merged-data.csv"
+VEGETATION_CSV = REPO_ROOT / "Data" / "cleaned-data" / "vegetation-dummy.csv"
 
 N_LAGS = 14
 
@@ -64,6 +65,7 @@ class RiskBreakdown(BaseModel):
     flood_risk_score: float
     air_quality_risk_score: float
     heat_stress_risk_score: float
+    vegetation_stress_score: float
     combined_risk_score: float
     combined_risk_label: str
     methodology: str
@@ -93,6 +95,20 @@ def load_historical_context(csv_path: Path) -> tuple[pd.DataFrame, dict]:
     for csv_col, internal in CSV_COL_MAP.items():
         if csv_col in df.columns:
             df[internal] = pd.to_numeric(df[csv_col], errors="coerce")
+
+    if VEGETATION_CSV.is_file():
+        vegetation = pd.read_csv(VEGETATION_CSV)
+        vegetation["Month"] = pd.to_numeric(vegetation["Month"], errors="coerce")
+        vegetation["Vegetation Index"] = pd.to_numeric(
+            vegetation["Vegetation Index"],
+            errors="coerce",
+        )
+        monthly = vegetation.dropna(subset=["Month", "Vegetation Index"]).set_index("Month")[
+            "Vegetation Index"
+        ]
+        df["vegetation"] = df["Date"].dt.month.map(monthly).astype(float).fillna(60.0)
+    else:
+        df["vegetation"] = 60.0
 
     tail = df.tail(N_LAGS).copy().reset_index(drop=True)
 
@@ -129,6 +145,7 @@ def map_user_to_series(req: PredictRequest, ratios: dict) -> dict[str, float]:
         "aqi": pm25 * ratios.get("aqi", 1.0),
         "tmax": tmax,
         "tmin": tmax - ratios.get("tmax_tmin_delta", 5.0),
+        "vegetation": req.vegetation,
     }
 
 
@@ -293,7 +310,11 @@ def _pollution_input_to_risk(pollution_input: float) -> float:
 
 
 def compute_environmental_risk(
-    flood_prob: float, pm25: float, temp_c: float, pollution_input: float
+    flood_prob: float,
+    pm25: float,
+    temp_c: float,
+    pollution_input: float,
+    vegetation_input: float,
 ) -> RiskBreakdown:
     """Compute combined environmental risk from the 3 ML model outputs."""
     flood_score = round(flood_prob * 100, 1)        # already 0-1 probability
@@ -305,8 +326,15 @@ def compute_environmental_risk(
     aq_score_raw = (0.55 * aq_base) + (0.45 * aq_slider) + (0.25 * aq_adjust)
     aq_score = round(float(np.clip(aq_score_raw, 0.0, 100.0)), 1)
     heat_score = round(_temp_to_risk_bangalore(temp_c), 1)
+    vegetation_score = round(float(np.clip(100.0 - vegetation_input, 0.0, 100.0)), 1)
 
-    combined = round(flood_score * 0.35 + aq_score * 0.35 + heat_score * 0.30, 1)
+    combined = round(
+        flood_score * 0.30
+        + aq_score * 0.30
+        + heat_score * 0.25
+        + vegetation_score * 0.15,
+        1,
+    )
 
     if combined < 20:
         label = "Low Risk"
@@ -323,14 +351,16 @@ def compute_environmental_risk(
         flood_risk_score=flood_score,
         air_quality_risk_score=aq_score,
         heat_stress_risk_score=heat_score,
+        vegetation_stress_score=vegetation_score,
         combined_risk_score=combined,
         combined_risk_label=label,
         methodology=(
             "Combined risk derived from ML model outputs. "
-            "Flood: model probability × 100 (weight 35%). "
+            "Flood: model probability × 100 (weight 30%). "
             "Air quality: predicted PM2.5 mapped to EPA AQI breakpoints with bounded "
-            "scenario responsiveness from pollution slider (weight 35%). "
-            "Heat stress: predicted temp mapped to IMD Bangalore thresholds (weight 30%)."
+            "scenario responsiveness from pollution slider (weight 30%). "
+            "Heat stress: predicted temp mapped to IMD Bangalore thresholds (weight 25%). "
+            "Vegetation: inverse green-cover stress from dummy vegetation dataset and slider (weight 15%)."
         ),
     )
 
@@ -353,6 +383,7 @@ def predict(payload: PredictRequest) -> PredictionResponse:
             next_pm25,
             next_temp,
             payload.pollution,
+            payload.vegetation,
         )
 
         return PredictionResponse(
@@ -371,7 +402,7 @@ def predict(payload: PredictRequest) -> PredictionResponse:
                 "mode": "historical-lag-with-scenario-override",
                 "historical_rows_used": len(HISTORICAL_TAIL),
                 "lag_construction": "lag1=user_slider, lag2..14=real_dataset_tail",
-                "vegetation_note": "Not used by any ML model — UI-only parameter.",
+                "vegetation_source": str(VEGETATION_CSV.relative_to(REPO_ROOT)),
             },
         )
     except Exception as exc:
