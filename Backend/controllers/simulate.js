@@ -11,17 +11,12 @@ function getConfiguredMlUrl() {
 }
 
 function getInferenceUrls() {
-  const normalized =
-    getConfiguredMlUrl()
-      .replace(/\/+$/, "")
-      .replace(/\/docs$/, "")
-      .replace(/\/openapi\.json$/, "");
+  const normalized = getConfiguredMlUrl()
+    .replace(/\/+$/, "")
+    .replace(/\/docs$/, "")
+    .replace(/\/openapi\.json$/, "");
 
-  if (/\/predict$/i.test(normalized)) {
-    return [normalized, `${normalized}/`];
-  }
-
-  return [normalized, `${normalized}/predict/`];
+  return [normalized];
 }
 
 const simulateController = async (req, res) => {
