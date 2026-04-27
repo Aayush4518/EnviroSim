@@ -5,7 +5,8 @@
  * Requires: Python inference service on :8000, backend on :6969
  */
 
-const BACKEND = "https://envirosim.onrender.com";
+// changed the url
+const BACKEND = "https://envirosim-1.onrender.com";
 
 async function test(name, fn) {
   try {

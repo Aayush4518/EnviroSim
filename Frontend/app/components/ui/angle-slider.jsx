@@ -20,7 +20,8 @@ export default function WithKnobAngleSlider() {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => {
-      fetch("https://envirosim.onrender.com/simulate", {
+      // changed the url
+      fetch("https://envirosim-1.onrender.com/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rainfall: rainPercent }),

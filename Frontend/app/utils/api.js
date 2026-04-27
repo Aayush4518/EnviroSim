@@ -1,4 +1,5 @@
-const BACKEND_URL = "https://envirosim.onrender.com";
+// changed the url
+const BACKEND_URL = "https://envirosim-1.onrender.com";
 
 export async function simulate(data){
     try{
