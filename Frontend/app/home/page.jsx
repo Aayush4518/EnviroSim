@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, MapPin, Cloud, Droplets, Thermometer, TrendingUp, Zap } from "lucide-react";
 import Map from "@/app/components/Map";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+const BACKEND_URL = "https://envirosim.onrender.com";
 
 const Home = () => {
   const [predictionData, setPredictionData] = useState(null);
@@ -298,4 +298,3 @@ const Home = () => {
 };
 
 export default Home;
-

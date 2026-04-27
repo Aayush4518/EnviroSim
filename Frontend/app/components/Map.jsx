@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Search, Layers, MapPin, Activity } from "lucide-react";
 
 const INITIAL_CENTER = [12.9716, 77.5946];
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+const BACKEND_URL = "https://envirosim.onrender.com";
 const INITIAL_ZOOM = 12;
 const BANGALORE_BOUNDS = [
   [12.82, 77.43],

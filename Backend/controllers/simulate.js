@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const ML_URL = process.env.ML_URL;
+const ML_URL = "https://envirosim.onrender.com";
 let lastCallTime = 0;
 
 const simulateController = async (req, res) => {

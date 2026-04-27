@@ -5,7 +5,7 @@
  * Requires: Python inference service on :8000, backend on :6969
  */
 
-const BACKEND = process.env.BACKEND_URL || "http://localhost:6969";
+const BACKEND = "https://envirosim.onrender.com";
 
 async function test(name, fn) {
   try {
