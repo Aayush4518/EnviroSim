@@ -32,10 +32,20 @@ from Data.Models.temperature_model import predict_max_temp_frame
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("inference")
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-MODELS_DIR = REPO_ROOT / "Data" / "Models"
-MERGED_CSV = REPO_ROOT / "Data" / "cleaned-data" / "merged-data.csv"
-VEGETATION_CSV = REPO_ROOT / "Data" / "cleaned-data" / "vegetation-dummy.csv"
+import os
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+DATA_DIR = BASE_DIR / "Data"
+MODELS_DIR = DATA_DIR / "Models"
+
+# Debug logs (IMPORTANT for Render)
+print("BASE_DIR:", BASE_DIR)
+print("DATA_DIR exists:", DATA_DIR.exists())
+print("MODELS_DIR exists:", MODELS_DIR.exists())
+
+MERGED_CSV = BASE_DIR / "Data" / "cleaned-data" / "merged-data.csv"
+VEGETATION_CSV = BASE_DIR / "Data" / "cleaned-data" / "vegetation-dummy.csv"
 
 N_LAGS = 14
 
@@ -408,7 +418,7 @@ def predict(payload: PredictRequest) -> PredictionResponse:
                 "mode": "historical-lag-with-scenario-override",
                 "historical_rows_used": len(HISTORICAL_TAIL),
                 "lag_construction": "lag1=user_slider, lag2..14=real_dataset_tail",
-                "vegetation_source": str(VEGETATION_CSV.relative_to(REPO_ROOT)),
+                "vegetation_source": str(VEGETATION_CSV.relative_to(BASE_DIR)),
             },
         )
     except Exception as exc:
