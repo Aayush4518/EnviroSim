@@ -1,7 +1,5 @@
 const axios = require("axios");
 
-let lastCallTime = 0;
-
 function getConfiguredMlUrl() {
   return (
     process.env.PY_INFERENCE_URL ||
@@ -20,16 +18,6 @@ function getInferenceUrls() {
 }
 
 const simulateController = async (req, res) => {
-  const now = Date.now();
-
-  if (now - lastCallTime < 1000) {
-    return res.status(429).json({
-      error: "Too many requests, slow down",
-    });
-  }
-
-  lastCallTime = now;
-
   try {
     const inferenceUrls = getInferenceUrls();
     let lastError;
