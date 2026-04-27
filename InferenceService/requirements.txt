@@ -1,8 +1,8 @@
 fastapi
 uvicorn
-pandas
-numpy
-scikit-learn
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.6.1
+scipy==1.11.4
 joblib
 httpx
-pytest
