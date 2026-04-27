@@ -8,6 +8,21 @@
 // changed the url
 const BACKEND = process.env.BACKEND_URL || "http://127.0.0.1:6969";
 
+function toNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function buildSimulationPayload(data = {}) {
+  const rainfall = toNumber(data.rainfall, 45);
+  const temperature = toNumber(data.temperature, 30);
+  const humidity = toNumber(data.humidity, 70);
+
+  return {
+    features: [rainfall, temperature, humidity],
+  };
+}
+
 async function test(name, fn) {
   try {
     await fn();
@@ -23,10 +38,12 @@ function assert(condition, msg) {
 }
 
 async function postSimulate(body) {
+  const payload = buildSimulationPayload(body);
+  console.log("Simulate payload:", payload);
   const res = await fetch(`${BACKEND}/simulate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
   return { status: res.status, data: await res.json() };
 }

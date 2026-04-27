@@ -1,12 +1,9 @@
-export const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:6969";
+export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 const DEFAULT_SIMULATION_VALUES = {
   rainfall: 45,
-  temperature: 28,
-  pollution: 50,
-  vegetation: 60,
-  month: new Date().getMonth() + 1,
+  temperature: 30,
+  humidity: 70,
 };
 
 function toNumber(value, fallback) {
@@ -20,28 +17,23 @@ export function buildSimulationPayload(data = {}) {
     data.temperature,
     DEFAULT_SIMULATION_VALUES.temperature
   );
-  const pollution = toNumber(
-    data.pollution ?? data.humidity,
-    DEFAULT_SIMULATION_VALUES.pollution
+  const humidity = toNumber(
+    data.humidity,
+    DEFAULT_SIMULATION_VALUES.humidity
   );
-  const vegetation = toNumber(
-    data.vegetation,
-    DEFAULT_SIMULATION_VALUES.vegetation
-  );
-  const month = toNumber(data.month, DEFAULT_SIMULATION_VALUES.month);
 
   return {
-    features: [rainfall, temperature, pollution],
-    rainfall,
-    temperature,
-    pollution,
-    vegetation,
-    month,
+    features: [rainfall, temperature, humidity],
   };
 }
 
 export async function simulate(data = {}) {
+  if (!BACKEND_URL) {
+    throw new Error("NEXT_PUBLIC_BACKEND_URL is not configured");
+  }
+
   const payload = buildSimulationPayload(data);
+  console.log("Simulate payload:", payload);
 
   try {
     const res = await fetch(`${BACKEND_URL}/simulate`, {
