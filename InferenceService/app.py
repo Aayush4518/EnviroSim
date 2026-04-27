@@ -224,9 +224,15 @@ def build_feature_row(
 app = FastAPI(title="EnviroSim Inference Service", version="1.0.0")
 
 # Load at startup
-FLOOD_BUNDLE = load_flood_bundle(MODELS_DIR / "flood_model.joblib")
-POLLUTION_BUNDLE = load_pollution_bundle(MODELS_DIR / "pollution_model.joblib")
-TEMP_BUNDLE = load_temp_bundle(MODELS_DIR / "temperature_model.joblib")
+try:
+    FLOOD_BUNDLE = load_flood_bundle(MODELS_DIR / "flood_model.joblib")
+    POLLUTION_BUNDLE = load_pollution_bundle(MODELS_DIR / "pollution_model.joblib")
+    TEMP_BUNDLE = load_temp_bundle(MODELS_DIR / "temperature_model.joblib")
+    print("✅ Models loaded")
+except Exception as e:
+    print("❌ MODEL LOAD ERROR:", e)
+    raise e
+
 HISTORICAL_TAIL, DERIVED_RATIOS = load_historical_context(MERGED_CSV)
 
 logger.info("All models and historical data loaded.")
@@ -389,10 +395,14 @@ def predict(payload: PredictRequest) -> PredictionResponse:
         flood_row = build_feature_row(FLOOD_BUNDLE["feature_cols"], HISTORICAL_TAIL, user, payload.month)
         poll_row = build_feature_row(POLLUTION_BUNDLE["feature_cols"], HISTORICAL_TAIL, user, payload.month)
         temp_row = build_feature_row(TEMP_BUNDLE["feature_cols"], HISTORICAL_TAIL, user, payload.month)
+        
+        print(f"✅ Feature rows built for temp={payload.temperature}, pollution={payload.pollution}")
 
+        print(f"⏳ Running predictions...")
         flood_prob = float(predict_risk_frame(flood_row, FLOOD_BUNDLE)[0])
         next_pm25 = float(predict_pm25_frame(poll_row, POLLUTION_BUNDLE)[0])
         next_temp = float(predict_max_temp_frame(temp_row, TEMP_BUNDLE)[0])
+        print(f"✅ Predictions: flood={flood_prob:.3f}, pm25={next_pm25:.2f}, temp={next_temp:.2f}")
 
         risk = compute_environmental_risk(
             flood_prob,
@@ -422,5 +432,6 @@ def predict(payload: PredictRequest) -> PredictionResponse:
             },
         )
     except Exception as exc:
+        print(f"❌ INFERENCE ERROR: {exc}")
         logger.exception("Inference failure")
         raise HTTPException(status_code=500, detail=f"Inference failure: {exc}") from exc
