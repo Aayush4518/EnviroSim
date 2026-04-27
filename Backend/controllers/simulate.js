@@ -34,6 +34,7 @@ const simulateController = async (req, res) => {
   } catch (err) {
     const inferenceUrl = getInferenceUrl();
     const upstreamStatus = err.response?.status;
+    console.log("ML error:", err.response?.data || err.message);
 
     return res.status(upstreamStatus ? 502 : 500).json({
       error: "ML service error",

@@ -6,7 +6,7 @@
  */
 
 // changed the url
-const BACKEND = "https://envirosim-1.onrender.com";
+const BACKEND = process.env.BACKEND_URL || "http://127.0.0.1:6969";
 
 async function test(name, fn) {
   try {
@@ -15,7 +15,7 @@ async function test(name, fn) {
   } catch (e) {
     console.error(`  ❌ ${name}: ${e.message}`);
     process.exitCode = 1;
-  }
+  }// hiiiiiii
 }
 
 function assert(condition, msg) {
