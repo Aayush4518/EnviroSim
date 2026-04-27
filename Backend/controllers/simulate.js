@@ -35,8 +35,8 @@ const simulateController = async (req, res) => {
     let lastError;
 
     for (const inferenceUrl of inferenceUrls) {
-      try {
-        const endpoint = `${inferenceUrl}/predict/`; //trailing slash
+      try { //comment 
+        const endpoint = `${process.env.ML_URL}/predict/`;
         console.log("Calling ML at:", endpoint);
         const response = await axios.post(endpoint, req.body, {
           timeout: 30000,
