@@ -17,18 +17,11 @@ function getInferenceUrls() {
       .replace(/\/docs$/, "")
       .replace(/\/openapi\.json$/, "");
 
-  const candidates = [];
-
   if (/\/predict$/i.test(normalized)) {
-    candidates.push(normalized);
-    candidates.push(`${normalized}/`);
-  } else {
-    candidates.push(normalized);
-    candidates.push(`${normalized}/predict`);
-    candidates.push(`${normalized}/predict/`);
+    return [normalized, `${normalized}/`];
   }
 
-  return [...new Set(candidates)];
+  return [normalized, `${normalized}/predict/`];
 }
 
 const simulateController = async (req, res) => {
@@ -48,8 +41,9 @@ const simulateController = async (req, res) => {
 
     for (const inferenceUrl of inferenceUrls) {
       try {
-        console.log("Calling ML:", inferenceUrl);
-        const response = await axios.post(inferenceUrl, req.body, {
+        const endpoint = inferenceUrl;
+        console.log("Calling ML at:", endpoint);
+        const response = await axios.post(endpoint, req.body, {
           timeout: 30000,
         });
         return res.json(response.data);
