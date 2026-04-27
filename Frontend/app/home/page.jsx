@@ -22,11 +22,16 @@ const Home = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            latitude: 12.9716,
-            longitude: 77.5946,
-            area_name: "Bangalore",
+            temperature: 28,
+            pollution: 50,
+            rainfall: 45,
+            vegetation: 60,
+            month: new Date().getMonth() + 1,
           }),
         });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
         setPredictionData(data);
       } catch (error) {
@@ -269,15 +274,15 @@ const Home = () => {
             <div>
               <h4 className="font-semibold text-slate-900 dark:text-white mb-4">Resources</h4>
               <ul className="space-y-2 text-slate-600 dark:text-slate-400 text-sm">
-                <li><a href="#" className="hover:text-slate-900 dark:hover:text-white transition">Documentation</a></li>
-                <li><a href="#" className="hover:text-slate-900 dark:hover:text-white transition">API Docs</a></li>
+                <li><a href="/documentation" className="hover:text-slate-900 dark:hover:text-white transition">Documentation</a></li>
+                <li><a href="/documentation#api" className="hover:text-slate-900 dark:hover:text-white transition">API Docs</a></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-slate-900 dark:text-white mb-4">Legal</h4>
               <ul className="space-y-2 text-slate-600 dark:text-slate-400 text-sm">
-                <li><a href="#" className="hover:text-slate-900 dark:hover:text-white transition">Privacy</a></li>
-                <li><a href="#" className="hover:text-slate-900 dark:hover:text-white transition">Terms</a></li>
+                <li><a href="/documentation#privacy" className="hover:text-slate-900 dark:hover:text-white transition">Privacy</a></li>
+                <li><a href="/documentation#terms" className="hover:text-slate-900 dark:hover:text-white transition">Terms</a></li>
               </ul>
             </div>
           </div>

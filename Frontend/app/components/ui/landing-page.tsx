@@ -462,45 +462,45 @@ export default function GlobeScrollDemo() {
     {
       id: "hero",
       badge: "Welcome",
-      title: "Explore",
-      subtitle: "Our World",
-      description: "Journey through an immersive experience where technology meets innovation. Watch as perspectives shift and possibilities unfold with every interaction, creating a symphony of digital artistry.",
+      title: "Environmental Risk",
+      subtitle: "Intelligence for Bangalore",
+      description: "Harness the power of machine learning to predict and monitor environmental risks across Bangalore. From air pollution to flood risks and heat stress—make data-driven decisions to build a more resilient city.",
       align: "left" as const,
       actions: [
-        { label: "Begin Journey", variant: "primary" as const, actionId: "auto-tour" as const },
+        { label: "Launch Dashboard", variant: "primary" as const, onClick: () => router.push("/home") },
         { label: "Learn More", variant: "secondary" as const, actionId: "scroll-next" as const },
       ]
     },
     {
       id: "innovation",
-      badge: "Innovation",
-      title: "Connected Worldwide",
-      description: "From every corner of the globe, we witness the interconnected web of human achievement. Each connection represents progress, every interaction drives innovation forward into uncharted territories.",
+      badge: "ML-Powered",
+      title: "Predictive Analytics",
+      description: "Our advanced machine learning models analyze real-time environmental data across 26+ neighborhoods in Bangalore. Get accurate predictions for pollution levels, flood probabilities, and heat indices to help urban planners and citizens prepare for what's ahead.",
       align: "center" as const,
     },
     {
       id: "discovery",
-      badge: "Discovery",
-      title: "Expanding",
-      subtitle: "Possibilities",
-      description: "As we push beyond familiar boundaries, new worlds of opportunity emerge from the horizon. What seemed impossible yesterday becomes tomorrow's foundation for extraordinary achievements.",
+      badge: "Simulation",
+      title: "Interactive",
+      subtitle: "What-If Scenarios",
+      description: "Explore how environmental changes impact your area through interactive simulations. Adjust pollution, rainfall, temperature, and vegetation levels to visualize potential outcomes and understand cause-and-effect relationships in urban environments.",
       align: "left" as const,
       features: [
-        { title: "Limitless Exploration", description: "Discover new dimensions of possibility and innovation" },
-        { title: "Seamless Integration", description: "Where cutting-edge technology meets human intuition" },
-        { title: "Future-Ready Solutions", description: "Built for tomorrow's challenges and opportunities" }
+        { title: "Real-Time Monitoring", description: "24/7 tracking of air pollution, flood risks, and heat stress across Bangalore" },
+        { title: "Interactive Maps", description: "Visual heatmaps showing risk levels for 26+ neighborhoods with live updates" },
+        { title: "Scenario Planning", description: "Test different environmental conditions and see their impact instantly" }
       ]
     },
     {
       id: "future",
-      badge: "Future",
-      title: "Our Shared",
-      subtitle: "Tomorrow",
-      description: "In this moment of unity, we see not just a planet, but a canvas of infinite human potential. Every connection represents hope, every innovation builds bridges to our collective future of endless possibilities.",
+      badge: "Ready to Explore",
+      title: "Start Making",
+      subtitle: "Data-Driven Decisions",
+      description: "Whether you're an urban planner, researcher, or concerned citizen, EnviroSim gives you the tools to understand environmental risks and plan for a sustainable future. Access detailed APIs, comprehensive documentation, and powerful visualization tools.",
       align: "center" as const,
       actions: [
-        { label: "Join the Movement", variant: "primary" as const, onClick: () => router.push("/home") },
-        { label: "Explore More", variant: "secondary" as const, onClick: () => console.log("Explore clicked") }
+        { label: "View Dashboard", variant: "primary" as const, onClick: () => router.push("/home") },
+        { label: "Try Simulation", variant: "secondary" as const, onClick: () => router.push("/simulate") }
       ]
     }
   ];

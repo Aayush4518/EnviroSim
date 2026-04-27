@@ -132,16 +132,20 @@ export default function Map({ predictionData, predictionLoading = false, sliderV
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                latitude: area.lat,
-                longitude: area.lng,
-                area_name: area.area,
+                temperature: 28,
+                pollution: 50,
+                rainfall: 45,
+                vegetation: 60,
+                month: new Date().getMonth() + 1,
               }),
             });
             
-            if (response.ok) {
-              const data = await response.json();
-              predictions[area.area] = data;
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
             }
+            
+            const data = await response.json();
+            predictions[area.area] = data;
           } catch (error) {
             console.error(`Error fetching prediction for ${area.area}:`, error);
           }
