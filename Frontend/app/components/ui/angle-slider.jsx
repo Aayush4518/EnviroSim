@@ -1,7 +1,7 @@
 "use client";
 import { AngleSlider } from "@ark-ui/react/angle-slider";
 import { useStore } from "../store/useStore";
-import { useState, useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 const width = 200;
 const thickness = 20;
@@ -9,40 +9,44 @@ const thickness = 20;
 export default function WithKnobAngleSlider() {
   const rain = useStore((state) => state.rain);
   const setRain = useStore((state) => state.setRain);
-  const rainPercent= Math.round((rain / 360) * 100)
+  const rainPercent = Math.round((rain / 360) * 100);
+  const isFirst = useRef(true);
 
-useEffect(() => {
-  const controller = new AbortController();
-
-  const timeout = setTimeout(() => {         //api debounce logic, wait for 500ms after the last change before making the API call
-    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/simulate`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ rainfall: rainPercent }),
-  signal: controller.signal,
-})
-  .then((res) => res.json())
-  .then((data) => {
-    console.log("✅ Backend response:", data);
-  })
-  .catch((err) => {
-    if (err.name !== "AbortError") {
-      console.error(err);
+  useEffect(() => {
+    if (isFirst.current) {
+      isFirst.current = false;
+      return;
     }
-  })
-  }, 500); // Adjust the debounce delay as needed
 
-  return () => {
-    clearTimeout(timeout);
-    controller.abort(); // cancel previous request
-  };
-}, [rainPercent]);
-console.log("Rain value:", rain);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/simulate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rainfall: rainPercent }),
+        signal: controller.signal,
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("Backend response:", data);
+        })
+        .catch((err) => {
+          if (err.name !== "AbortError") {
+            console.error(err);
+          }
+        });
+    }, 1000);
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [rainPercent]);
 
   return (
     <AngleSlider.Root
       value={rain}
-      onValueChange={(details) => setRain(details.value)} // Update the store with the new value when it changes
+      onValueChange={(details) => setRain(details.value)}
       defaultValue={45}
       className="relative w-[200px] h-[200px] flex items-center justify-center"
     >

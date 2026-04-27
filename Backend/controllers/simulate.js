@@ -1,37 +1,26 @@
 const axios = require("axios");
 
-// 🔥 Use env variable (set this in Render)
 const ML_URL = process.env.ML_URL;
+let lastCallTime = 0;
 
 const simulateController = async (req, res) => {
-  const { rainfall, pollution, vegetation, temperature } = req.body;
+  const now = Date.now();
+
+  if (now - lastCallTime < 1000) {
+    return res.status(429).json({
+      error: "Too many requests, slow down",
+    });
+  }
+
+  lastCallTime = now;
 
   try {
-    const response = await axios.post(`${ML_URL}/predict`, {
-      rainfall,
-      pollution,
-      vegetation,
-      temperature,
-      month: 1, // you can make this dynamic later
-    });
-
-    // ✅ Send ML response back to frontend
-    res.json(response.data);
-
-  } catch (error) {
-    console.error("❌ ML ERROR:", error.message);
-
-    // If ML gives response error
-    if (error.response) {
-      return res.status(500).json({
-        error: "ML service error",
-        details: error.response.data,
-      });
-    }
-
-    // If request failed (network etc)
-    res.status(500).json({
-      error: "Failed to connect to ML service",
+    const response = await axios.post(`${ML_URL}/predict`, req.body);
+    return res.json(response.data);
+  } catch (err) {
+    return res.status(500).json({
+      error: "ML service error",
+      details: err.response?.data || err.message,
     });
   }
 };

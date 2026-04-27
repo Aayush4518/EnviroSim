@@ -84,7 +84,7 @@ export default function EnvironmentControls({
             error: err?.message || "Failed to fetch prediction",
           });
         });
-    }, 400);
+    }, 1000);
 
     return () => {
       clearTimeout(timeout);
