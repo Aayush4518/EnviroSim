@@ -128,7 +128,7 @@ export default function Map({ predictionData, predictionLoading = false, sliderV
         
         for (const area of BANGALORE_AREAS) {
           try {
-            const response = await fetch('/simulate', {
+            const response = await fetch('http://localhost:6969/simulate', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
