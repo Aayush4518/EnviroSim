@@ -17,5 +17,5 @@ app.post("/simulate", simulateController);
 const PORT = process.env.PORT || 6969;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Backend running on port ${PORT}`);
+  console.log(`🚀 Backend running on port ${PORT}`); //hey
 });
