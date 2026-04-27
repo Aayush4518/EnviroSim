@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowRight, MapPin, Cloud, Droplets, Thermometer, TrendingUp, Zap } from "lucide-react";
 import Map from "@/app/components/Map";
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+
 const Home = () => {
   const [predictionData, setPredictionData] = useState(null);
   const [sliderValues, setSliderValues] = useState({
@@ -18,7 +20,7 @@ const Home = () => {
     const fetchPrediction = async () => {
       setPredictionLoading(true);
       try {
-        const response = await fetch('http://localhost:6969/simulate', {
+        const response = await fetch(`${BACKEND_URL}/simulate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

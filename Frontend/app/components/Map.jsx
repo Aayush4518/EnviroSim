@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Search, Layers, MapPin, Activity } from "lucide-react";
 
 const INITIAL_CENTER = [12.9716, 77.5946];
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 const INITIAL_ZOOM = 12;
 const BANGALORE_BOUNDS = [
   [12.82, 77.43],
@@ -128,7 +129,7 @@ export default function Map({ predictionData, predictionLoading = false, sliderV
         
         for (const area of BANGALORE_AREAS) {
           try {
-            const response = await fetch('http://localhost:6969/simulate', {
+            const response = await fetch(`${BACKEND_URL}/simulate`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

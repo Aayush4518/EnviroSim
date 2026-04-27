@@ -1,6 +1,8 @@
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+
 export async function simulate(data){
     try{
-        const res= await fetch("http://localhost:6969/simulate", {
+        const res= await fetch(`${BACKEND_URL}/simulate`, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify(data)

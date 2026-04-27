@@ -1,6 +1,6 @@
-const express = require('express');
-const cors = require('cors');
-const { simulateController } = require('./controllers/simulate');
+const express = require("express");
+const cors = require("cors");
+const { simulateController } = require("./controllers/simulate");
 
 const app = express();
 
@@ -12,9 +12,10 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Backend is running" });
 });
 
-// Simulate endpoint - routes to controller
 app.post("/simulate", simulateController);
 
-app.listen(6969, () => {
-  console.log("Backend running on http://localhost:6969");
+const PORT = process.env.PORT || 6969;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Backend running on port ${PORT}`);
 });

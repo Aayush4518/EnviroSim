@@ -14,18 +14,23 @@ export default function WithKnobAngleSlider() {
 useEffect(() => {
   const controller = new AbortController();
 
-  const timeout = setTimeout(() => {                                //api debounce logic, wait for 300ms after the last change before making the API call
-    fetch("http://localhost:6969/simulate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rain: rainPercent }),
-      signal: controller.signal,
-    }).catch((err) => {
-      if (err.name !== "AbortError") {
-        console.error(err);
-      }
-    });
-  }, 300);
+  const timeout = setTimeout(() => {         //api debounce logic, wait for 500ms after the last change before making the API call
+    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/simulate`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ rainfall: rainPercent }),
+  signal: controller.signal,
+})
+  .then((res) => res.json())
+  .then((data) => {
+    console.log("✅ Backend response:", data);
+  })
+  .catch((err) => {
+    if (err.name !== "AbortError") {
+      console.error(err);
+    }
+  })
+  }, 500); // Adjust the debounce delay as needed
 
   return () => {
     clearTimeout(timeout);
@@ -37,7 +42,7 @@ console.log("Rain value:", rain);
   return (
     <AngleSlider.Root
       value={rain}
-      onValueChange={(value) => setRain(value)} // Update the store with the new value when it changes
+      onValueChange={(details) => setRain(details.value)} // Update the store with the new value when it changes
       defaultValue={45}
       className="relative w-[200px] h-[200px] flex items-center justify-center"
     >
