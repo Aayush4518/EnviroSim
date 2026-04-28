@@ -332,6 +332,35 @@ def _pm25_to_risk(pm25: float) -> float:
     return min(85 + (pm25 - 250) / 250 * 15, 100)
 
 
+def _rainfall_input_to_risk(rainfall_input: float) -> float:
+    """
+    Convert rainfall slider input (mm) into a monotonic 0..100 flood-pressure term.
+
+    This supplements the flood classifier so one scenario override is still visibly
+    reflected in the UI even when the underlying lagged model output moves only a
+    little.
+    """
+    if rainfall_input <= 20:
+        return 0.0
+    if rainfall_input <= 80:
+        return float(((rainfall_input - 20) / 60) * 20)
+    if rainfall_input <= 180:
+        return float(20 + ((rainfall_input - 80) / 100) * 35)
+    if rainfall_input <= 300:
+        return float(55 + ((rainfall_input - 180) / 120) * 25)
+    return float(min(80 + ((rainfall_input - 300) / 200) * 20, 100))
+
+
+def adjust_flood_probability(flood_prob: float, rainfall_input: float) -> float:
+    """
+    Blend model probability with a bounded rainfall scenario term so rainfall
+    changes are visible without overwhelming the trained model signal.
+    """
+    rainfall_term = _rainfall_input_to_risk(rainfall_input) / 100.0
+    adjusted = (0.65 * flood_prob) + (0.35 * rainfall_term)
+    return float(np.clip(adjusted, 0.0, 1.0))
+
+
 def _temp_to_risk_bangalore(temp_c: float) -> float:
     """Convert predicted max temperature to 0-100 heat-stress risk.
 
@@ -385,13 +414,14 @@ def _pollution_input_to_risk(pollution_input: float) -> float:
 
 def compute_environmental_risk(
     flood_prob: float,
+    rainfall_input: float,
     pm25: float,
     temp_c: float,
     pollution_input: float,
     vegetation_input: float,
 ) -> RiskBreakdown:
     """Compute combined environmental risk from the 3 ML model outputs."""
-    flood_score = round(flood_prob * 100, 1)        # already 0-1 probability
+    flood_score = round(flood_prob * 100, 1)
     aq_base = _pm25_to_risk(max(pm25, 0))
     aq_slider = _pollution_input_to_risk(pollution_input)
     aq_adjust = _pollution_slider_adjustment(pollution_input)
@@ -430,7 +460,7 @@ def compute_environmental_risk(
         combined_risk_label=label,
         methodology=(
             "Combined risk derived from ML model outputs. "
-            "Flood: model probability × 100 (weight 30%). "
+            "Flood: model probability blended with bounded rainfall scenario responsiveness (weight 30%). "
             "Air quality: predicted PM2.5 mapped to EPA AQI breakpoints with bounded "
             "scenario responsiveness from pollution slider (weight 30%). "
             "Heat stress: predicted temp mapped to IMD Bangalore thresholds (weight 25%). "
@@ -468,8 +498,14 @@ def predict(payload: PredictRequest) -> PredictionResponse:
         next_pm25 = float(predict_pm25_frame(poll_row, pollution_bundle)[0])
         next_temp = float(predict_max_temp_frame(temp_row, temp_bundle)[0])
 
-        risk = compute_environmental_risk(
+        adjusted_flood_prob = adjust_flood_probability(
             flood_prob,
+            payload.rainfall,
+        )
+
+        risk = compute_environmental_risk(
+            adjusted_flood_prob,
+            payload.rainfall,
             next_pm25,
             next_temp,
             payload.pollution,
@@ -477,7 +513,7 @@ def predict(payload: PredictRequest) -> PredictionResponse:
         )
 
         return PredictionResponse(
-            flood_risk_probability=round(flood_prob, 4),
+            flood_risk_probability=round(adjusted_flood_prob, 4),
             predicted_pm25_next_day=round(max(next_pm25, 0), 2),
             predicted_temp_max_next_day=round(next_temp, 2),
             environmental_risk=risk,
@@ -494,6 +530,7 @@ def predict(payload: PredictRequest) -> PredictionResponse:
                 "lag_construction": "lag1=user_slider, lag2..14=real_dataset_tail",
                 "vegetation_source": str(VEGETATION_CSV.relative_to(BASE_DIR)),
                 "inference_duration_ms": round((time.perf_counter() - started_at) * 1000, 2),
+                "raw_flood_model_probability": round(flood_prob, 4),
             },
         )
     except Exception as exc:

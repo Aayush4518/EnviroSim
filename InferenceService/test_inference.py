@@ -56,6 +56,22 @@ def test_predict_high_rainfall():
         assert 0 <= data["flood_risk_probability"] <= 1
 
 
+def test_rainfall_changes_flood_probability():
+    with TestClient(app) as client:
+        low = client.post("/predict", json={
+            "temperature": 25, "pollution": 30, "rainfall": 5,
+            "vegetation": 60, "month": 7,
+        })
+        high = client.post("/predict", json={
+            "temperature": 25, "pollution": 30, "rainfall": 350,
+            "vegetation": 60, "month": 7,
+        })
+
+        assert low.status_code == 200
+        assert high.status_code == 200
+        assert high.json()["flood_risk_probability"] > low.json()["flood_risk_probability"]
+
+
 def test_predict_validation_rejects_invalid():
     """Out-of-range values should be rejected by Pydantic."""
     with TestClient(app) as client:
