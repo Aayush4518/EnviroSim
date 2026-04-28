@@ -62,22 +62,18 @@ function toNumber(value, fallback) {
 function normalizeSimulationPayload(body = {}) {
   if (body && typeof body === "object" && !Array.isArray(body)) {
     if (Array.isArray(body.features)) {
-      const [rainfall, temperature, pollution] = body.features;
+      const [rainfall, temperature, humidity] = body.features;
       return {
         rainfall,
         temperature,
-        pollution,
-        vegetation: body.vegetation,
-        month: body.month,
+        humidity,
       };
     }
 
     return {
       temperature: body.temperature,
-      pollution: body.pollution,
       rainfall: body.rainfall,
-      vegetation: body.vegetation,
-      month: body.month,
+      humidity: body.humidity ?? body.pollution,
     };
   }
 
@@ -87,18 +83,17 @@ function normalizeSimulationPayload(body = {}) {
 function validateSimulationPayload(rawPayload = {}) {
   const payload = {
     temperature: toNumber(rawPayload.temperature, 25),
-    pollution: toNumber(rawPayload.pollution, 30),
     rainfall: toNumber(rawPayload.rainfall, 45),
-    vegetation: toNumber(rawPayload.vegetation, 60),
-    month: toNumber(rawPayload.month, new Date().getMonth() + 1),
+    humidity: toNumber(
+      rawPayload.humidity ?? rawPayload.pollution,
+      70
+    ),
   };
 
   const rules = [
     ["temperature", payload.temperature, -10, 65],
-    ["pollution", payload.pollution, 0, 600],
     ["rainfall", payload.rainfall, 0, 1000],
-    ["vegetation", payload.vegetation, 0, 100],
-    ["month", payload.month, 1, 12],
+    ["humidity", payload.humidity, 0, 1000],
   ];
 
   const errors = [];
@@ -121,10 +116,7 @@ function validateSimulationPayload(rawPayload = {}) {
   }
 
   return {
-    payload: {
-      ...payload,
-      month: Math.trunc(payload.month),
-    },
+    payload,
     errors,
   };
 }
@@ -205,7 +197,15 @@ async function callMlPredictWithRetry(payload) {
     const { signal, cleanup } = createDeadlineSignal(ML_REQUEST_TIMEOUT_MS + 5000);
 
     try {
-      const response = await axios.post(predictUrl, payload, {
+      const { rainfall, temperature } = payload;
+      const humidity = payload.humidity ?? 70;
+      const mlPayload = {
+        features: [rainfall, temperature, humidity],
+      };
+
+      console.log("ML PAYLOAD:", mlPayload);
+
+      const response = await axios.post(predictUrl, mlPayload, {
         timeout: ML_REQUEST_TIMEOUT_MS,
         signal,
         headers: {
