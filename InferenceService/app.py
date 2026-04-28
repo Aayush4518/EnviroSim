@@ -22,7 +22,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, root_validator
 
 from Data.Models.flood_model import load_model_bundle as load_flood_bundle
 from Data.Models.flood_model import predict_risk_frame
@@ -70,11 +70,36 @@ CSV_COL_MAP = {
 # ---------------------------------------------------------------------------
 
 class PredictRequest(BaseModel):
+    features: list[float] | None = None
     temperature: float = Field(default=25.0, ge=-10, le=65)
     pollution: float = Field(default=30.0, ge=0, le=600)
     rainfall: float = Field(default=45.0, ge=0, le=1000)
     vegetation: float = Field(default=60.0, ge=0, le=100)
     month: int = Field(default=1, ge=1, le=12)
+
+    @root_validator(pre=True)
+    def map_features_payload(cls, values: dict[str, Any]) -> dict[str, Any]:
+        features = values.get("features")
+        if not isinstance(features, list):
+            return values
+
+        if len(features) == 5:
+            rainfall, temperature, pollution, vegetation, month = features
+            values.setdefault("rainfall", rainfall)
+            values.setdefault("temperature", temperature)
+            values.setdefault("pollution", pollution)
+            values.setdefault("vegetation", vegetation)
+            values.setdefault("month", month)
+            return values
+
+        if len(features) == 3:
+            rainfall, temperature, humidity = features
+            values.setdefault("rainfall", rainfall)
+            values.setdefault("temperature", temperature)
+            values.setdefault("pollution", humidity)
+            return values
+
+        raise ValueError("features must contain either 3 or 5 numeric values")
 
     class Config:
         extra = "forbid"

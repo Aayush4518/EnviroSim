@@ -62,18 +62,22 @@ function toNumber(value, fallback) {
 function normalizeSimulationPayload(body = {}) {
   if (body && typeof body === "object" && !Array.isArray(body)) {
     if (Array.isArray(body.features)) {
-      const [rainfall, temperature, humidity] = body.features;
+      const [rainfall, temperature, pollution, vegetation, month] = body.features;
       return {
         rainfall,
         temperature,
-        humidity,
+        pollution,
+        vegetation,
+        month,
       };
     }
 
     return {
       temperature: body.temperature,
       rainfall: body.rainfall,
-      humidity: body.humidity ?? body.pollution,
+      pollution: body.pollution ?? body.humidity,
+      vegetation: body.vegetation,
+      month: body.month,
     };
   }
 
@@ -84,16 +88,17 @@ function validateSimulationPayload(rawPayload = {}) {
   const payload = {
     temperature: toNumber(rawPayload.temperature, 25),
     rainfall: toNumber(rawPayload.rainfall, 45),
-    humidity: toNumber(
-      rawPayload.humidity ?? rawPayload.pollution,
-      70
-    ),
+    pollution: toNumber(rawPayload.pollution ?? rawPayload.humidity, 30),
+    vegetation: toNumber(rawPayload.vegetation, 60),
+    month: Math.trunc(toNumber(rawPayload.month, new Date().getMonth() + 1)),
   };
 
   const rules = [
     ["temperature", payload.temperature, -10, 65],
     ["rainfall", payload.rainfall, 0, 1000],
-    ["humidity", payload.humidity, 0, 1000],
+    ["pollution", payload.pollution, 0, 600],
+    ["vegetation", payload.vegetation, 0, 100],
+    ["month", payload.month, 1, 12],
   ];
 
   const errors = [];
@@ -197,10 +202,9 @@ async function callMlPredictWithRetry(payload) {
     const { signal, cleanup } = createDeadlineSignal(ML_REQUEST_TIMEOUT_MS + 5000);
 
     try {
-      const { rainfall, temperature } = payload;
-      const humidity = payload.humidity ?? 70;
+      const { rainfall, temperature, pollution, vegetation, month } = payload;
       const mlPayload = {
-        features: [rainfall, temperature, humidity],
+        features: [rainfall, temperature, pollution, vegetation, month],
       };
 
       console.log("ML PAYLOAD:", mlPayload);

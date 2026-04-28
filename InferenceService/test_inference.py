@@ -66,7 +66,20 @@ def test_predict_validation_rejects_invalid():
 def test_predict_validation_rejects_unknown_fields():
     with TestClient(app) as client:
         resp = client.post("/predict", json={"features": [1, 2, 3]})
-        assert resp.status_code == 422
+        assert resp.status_code == 200
+        assert resp.json()["input_echo"]["pollution"] == 3
+
+
+def test_predict_accepts_five_feature_payload():
+    with TestClient(app) as client:
+        resp = client.post("/predict", json={"features": [80, 30, 90, 25, 7]})
+        assert resp.status_code == 200
+        echo = resp.json()["input_echo"]
+        assert echo["rainfall"] == 80
+        assert echo["temperature"] == 30
+        assert echo["pollution"] == 90
+        assert echo["vegetation"] == 25
+        assert echo["month"] == 7
 
 
 def test_predict_input_echo():
