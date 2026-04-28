@@ -8,6 +8,8 @@ injected at lag-1 position for interactive what-if scenarios.
 from __future__ import annotations
 
 import sys
+import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 # Add project root to Python path for Render deployment
@@ -31,8 +33,6 @@ from Data.Models.temperature_model import predict_max_temp_frame
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("inference")
-
-import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -75,6 +75,9 @@ class PredictRequest(BaseModel):
     rainfall: float = Field(default=45.0, ge=0, le=1000)
     vegetation: float = Field(default=60.0, ge=0, le=100)
     month: int = Field(default=1, ge=1, le=12)
+
+    class Config:
+        extra = "forbid"
 
 
 class RiskBreakdown(BaseModel):
@@ -221,29 +224,53 @@ def build_feature_row(
 # FastAPI app
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="EnviroSim Inference Service", version="1.0.0")
 
-# Load at startup
-try:
-    FLOOD_BUNDLE = load_flood_bundle(MODELS_DIR / "flood_model.joblib")
-    POLLUTION_BUNDLE = load_pollution_bundle(MODELS_DIR / "pollution_model.joblib")
-    TEMP_BUNDLE = load_temp_bundle(MODELS_DIR / "temperature_model.joblib")
-    print("✅ Models loaded")
-except Exception as e:
-    print("❌ MODEL LOAD ERROR:", e)
-    raise e
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start = time.perf_counter()
+    logger.info("Starting inference service bootstrap")
 
-HISTORICAL_TAIL, DERIVED_RATIOS = load_historical_context(MERGED_CSV)
+    try:
+        app.state.flood_bundle = load_flood_bundle(MODELS_DIR / "flood_model.joblib")
+        app.state.pollution_bundle = load_pollution_bundle(MODELS_DIR / "pollution_model.joblib")
+        app.state.temp_bundle = load_temp_bundle(MODELS_DIR / "temperature_model.joblib")
+        app.state.historical_tail, app.state.derived_ratios = load_historical_context(MERGED_CSV)
+        app.state.started_at = time.time()
+        logger.info(
+            "Inference bootstrap complete in %.2fs",
+            time.perf_counter() - start,
+        )
+    except Exception:
+        logger.exception("Inference service failed to load startup assets")
+        raise
 
-logger.info("All models and historical data loaded.")
+    yield
+
+
+app = FastAPI(
+    title="EnviroSim Inference Service",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+
+@app.get("/")
+def root() -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "service": "inference",
+        "message": "Inference service is awake",
+    }
 
 
 @app.get("/health")
 def health() -> dict[str, Any]:
+    historical_tail = getattr(app.state, "historical_tail", [])
     return {
         "status": "ok",
+        "service": "inference",
         "models_loaded": ["flood", "pollution", "temperature"],
-        "historical_rows": len(HISTORICAL_TAIL),
+        "historical_rows": len(historical_tail),
     }
 
 
@@ -389,20 +416,32 @@ def compute_environmental_risk(
 
 @app.post("/predict", response_model=PredictionResponse)
 def predict(payload: PredictRequest) -> PredictionResponse:
+    started_at = time.perf_counter()
+    logger.info(
+        "Predict request received temp=%s pollution=%s rainfall=%s vegetation=%s month=%s",
+        payload.temperature,
+        payload.pollution,
+        payload.rainfall,
+        payload.vegetation,
+        payload.month,
+    )
+
     try:
-        user = map_user_to_series(payload, DERIVED_RATIOS)
+        flood_bundle = app.state.flood_bundle
+        pollution_bundle = app.state.pollution_bundle
+        temp_bundle = app.state.temp_bundle
+        historical_tail = app.state.historical_tail
+        derived_ratios = app.state.derived_ratios
 
-        flood_row = build_feature_row(FLOOD_BUNDLE["feature_cols"], HISTORICAL_TAIL, user, payload.month)
-        poll_row = build_feature_row(POLLUTION_BUNDLE["feature_cols"], HISTORICAL_TAIL, user, payload.month)
-        temp_row = build_feature_row(TEMP_BUNDLE["feature_cols"], HISTORICAL_TAIL, user, payload.month)
-        
-        print(f"✅ Feature rows built for temp={payload.temperature}, pollution={payload.pollution}")
+        user = map_user_to_series(payload, derived_ratios)
 
-        print(f"⏳ Running predictions...")
-        flood_prob = float(predict_risk_frame(flood_row, FLOOD_BUNDLE)[0])
-        next_pm25 = float(predict_pm25_frame(poll_row, POLLUTION_BUNDLE)[0])
-        next_temp = float(predict_max_temp_frame(temp_row, TEMP_BUNDLE)[0])
-        print(f"✅ Predictions: flood={flood_prob:.3f}, pm25={next_pm25:.2f}, temp={next_temp:.2f}")
+        flood_row = build_feature_row(flood_bundle["feature_cols"], historical_tail, user, payload.month)
+        poll_row = build_feature_row(pollution_bundle["feature_cols"], historical_tail, user, payload.month)
+        temp_row = build_feature_row(temp_bundle["feature_cols"], historical_tail, user, payload.month)
+
+        flood_prob = float(predict_risk_frame(flood_row, flood_bundle)[0])
+        next_pm25 = float(predict_pm25_frame(poll_row, pollution_bundle)[0])
+        next_temp = float(predict_max_temp_frame(temp_row, temp_bundle)[0])
 
         risk = compute_environmental_risk(
             flood_prob,
@@ -426,12 +465,17 @@ def predict(payload: PredictRequest) -> PredictionResponse:
             },
             metadata={
                 "mode": "historical-lag-with-scenario-override",
-                "historical_rows_used": len(HISTORICAL_TAIL),
+                "historical_rows_used": len(historical_tail),
                 "lag_construction": "lag1=user_slider, lag2..14=real_dataset_tail",
                 "vegetation_source": str(VEGETATION_CSV.relative_to(BASE_DIR)),
+                "inference_duration_ms": round((time.perf_counter() - started_at) * 1000, 2),
             },
         )
     except Exception as exc:
-        print(f"❌ INFERENCE ERROR: {exc}")
         logger.exception("Inference failure")
         raise HTTPException(status_code=500, detail=f"Inference failure: {exc}") from exc
+    finally:
+        logger.info(
+            "Predict request finished in %.2fms",
+            (time.perf_counter() - started_at) * 1000,
+        )

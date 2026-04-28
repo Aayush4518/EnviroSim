@@ -16,10 +16,16 @@ function toNumber(value, fallback) {
 function buildSimulationPayload(data = {}) {
   const rainfall = toNumber(data.rainfall, 45);
   const temperature = toNumber(data.temperature, 30);
-  const humidity = toNumber(data.humidity, 70);
+  const pollution = toNumber(data.pollution, data.humidity ?? 30);
+  const vegetation = toNumber(data.vegetation, 60);
+  const month = Math.trunc(toNumber(data.month, 1));
 
   return {
-    features: [rainfall, temperature, humidity],
+    rainfall,
+    temperature,
+    pollution,
+    vegetation,
+    month,
   };
 }
 
@@ -63,6 +69,7 @@ async function postSimulate(body) {
       temperature: 30, pollution: 50, rainfall: 80, vegetation: 40,
     });
     assert(status === 200, `status ${status}`);
+    assert(data.ok === true, `ok: ${data.ok}`);
     assert(data.status === "ok", `status: ${data.status}`);
     assert(data.source === "ml-inference", `source: ${data.source}`);
     assert(typeof data.prediction.flood_risk_probability === "number", "missing flood_risk");
@@ -76,10 +83,11 @@ async function postSimulate(body) {
 
   await test("POST /simulate echoes input back", async () => {
     const { data } = await postSimulate({
-      temperature: 20, pollution: 10, rainfall: 5, vegetation: 80,
+      temperature: 20, pollution: 10, rainfall: 5, vegetation: 80, month: 6,
     });
     assert(data.input.temperature === 20, "temperature mismatch");
     assert(data.input.rainfall === 5, "rainfall mismatch");
+    assert(data.prediction.input_echo.month === 6, "month mismatch");
   });
 
   await test("POST /simulate rejects out-of-range temperature", async () => {

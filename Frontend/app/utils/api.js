@@ -3,7 +3,9 @@ export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 const DEFAULT_SIMULATION_VALUES = {
   rainfall: 45,
   temperature: 30,
-  humidity: 70,
+  pollution: 30,
+  vegetation: 60,
+  month: 1,
 };
 
 function toNumber(value, fallback) {
@@ -17,13 +19,24 @@ export function buildSimulationPayload(data = {}) {
     data.temperature,
     DEFAULT_SIMULATION_VALUES.temperature
   );
-  const humidity = toNumber(
-    data.humidity,
-    DEFAULT_SIMULATION_VALUES.humidity
+  const pollution = toNumber(
+    data.pollution,
+    data.humidity ?? DEFAULT_SIMULATION_VALUES.pollution
+  );
+  const vegetation = toNumber(
+    data.vegetation,
+    DEFAULT_SIMULATION_VALUES.vegetation
+  );
+  const month = Math.trunc(
+    toNumber(data.month, DEFAULT_SIMULATION_VALUES.month)
   );
 
   return {
-    features: [rainfall, temperature, humidity],
+    rainfall,
+    temperature,
+    pollution,
+    vegetation,
+    month: Math.min(12, Math.max(1, month)),
   };
 }
 
@@ -44,7 +57,20 @@ export async function simulate(data = {}) {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Simulate request failed (${res.status}): ${text}`);
+      let parsed = null;
+
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = null;
+      }
+
+      const message =
+        parsed?.fallback?.suggestion ||
+        parsed?.error?.message ||
+        `Simulate request failed (${res.status})`;
+
+      throw new Error(message);
     }
 
     return await res.json();
